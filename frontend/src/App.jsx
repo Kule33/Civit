@@ -13,10 +13,14 @@ import AdminQuestionUpload from './routes/Admin/QuestionUpload.jsx';
 import AdminManageQuestions from './routes/Admin/ManageQuestions.jsx';
 import AdminTypesetUpload from './routes/Admin/TypesetUpload.jsx';
 
+
+
 function App() {
   return (
     <Routes>
       <Route path="/" element={<MainLayout />}> {/* Use MainLayout for all routes */}
+       
+
         {/* Teacher Routes */}
         <Route path="teacher/dashboard" element={<TeacherDashboard />} />
         <Route path="teacher/paper-builder" element={<PaperBuilder />} />
