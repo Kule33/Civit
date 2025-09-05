@@ -1,124 +1,316 @@
-import React, { useState } from 'react';
-import { Upload, Image, FileText, X } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Upload, Image, FileText, Filter } from 'lucide-react';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
+import PageHeader from '../../components/ui/PageHeader';
+import InputField from '../../components/ui/InputField';
+import SelectField from '../../components/ui/SelectField';
+import FileUploadZone from '../../components/upload/FileUploadZone';
+import UploadQueue from '../../components/upload/UploadQueue';
+import { useFileUpload } from '../../hooks/useFileUpload';
+import { useMetadata } from '../../hooks/useMetadata';
 
-const AdminQuestionUpload = () => {
-  const [uploadType, setUploadType] = useState('image');
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+const QuestionUpload = () => {
+  const fileInputRef = useRef(null);
+  const [uploadType, setUploadType] = React.useState('image');
+  
+  // Use custom hooks
+  const {
+    uploadedFiles,
+    isDragging,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handleFileInput,
+    addFiles,
+    removeFile,
+    clearAllFiles,
+    updateFileStatus
+  } = useFileUpload();
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setUploadedFiles(prev => [...prev, ...files.map(file => ({
-      file,
-      type: uploadType,
-      status: 'pending'
-    }))]);
+  const {
+    metadata,
+    availableOptions,
+    updateMetadata,
+    validateMetadata
+  } = useMetadata();
+
+  // Event handlers
+  const handleFilesAdded = (files, type) => {
+    addFiles(files, type);
   };
 
-  const removeFile = (index) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  const handleMetadataChange = (field, value) => {
+    updateMetadata(field, value);
+  };
+
+  const simulateUpload = async () => {
+    for (const file of uploadedFiles) {
+      updateFileStatus(file.id, { status: 'uploading', progress: 0 });
+      
+      // Simulate progress
+      for (let progress = 0; progress <= 100; progress += 10) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        updateFileStatus(file.id, { progress });
+      }
+      
+      updateFileStatus(file.id, { status: 'completed' });
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (uploadedFiles.length === 0) {
+      alert('Please select at least one file to upload');
+      return;
+    }
+
+    if (!validateMetadata()) {
+      if (metadata.examType === 'grade5') {
+        alert('Please fill in all required fields (Country, Exam Type, and Paper Type)');
+      } else {
+        alert('Please fill in all required fields (Country, Exam Type, and Subject)');
+      }
+      return;
+    }
+
+    await simulateUpload();
+    alert('Files uploaded successfully! (This is a simulation)');
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Question Upload</h1>
-          <p className="text-gray-600">Upload questions and metadata</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Question Upload"
+        subtitle="Upload questions and add metadata for better organization"
+        actions={
+          <Button variant="secondary" icon={Filter}>
+            Manage Questions
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upload Panel */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">Upload New Questions</h2>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Upload Type</label>
-            <div className="flex space-x-4">
-              {['image', 'document', 'text'].map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setUploadType(type)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    uploadType === type
-                      ? 'bg-blue-100 border-blue-500 text-blue-700'
-                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-            <input
-              type="file"
-              multiple
-              onChange={handleFileUpload}
-              className="hidden"
-              id="file-upload"
-              accept={uploadType === 'image' ? 'image/*' : uploadType === 'document' ? '.doc,.docx,.pdf' : '*'}
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                {uploadType === 'image' ? <Image size={24} /> : 
-                 uploadType === 'document' ? <FileText size={24} /> : 
-                 <Upload size={24} />}
-              </div>
-              <p className="text-sm text-gray-600">
-                Drag & drop files or <span className="text-blue-600">browse</span>
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {uploadType === 'image' ? 'JPG, PNG, GIF' : 
-                 uploadType === 'document' ? 'DOC, DOCX, PDF' : 
-                 'Any file type'} accepted
-              </p>
-            </label>
-          </div>
-
-          <button className="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-            Process Uploads
-          </button>
-        </div>
-
-        {/* Upload Queue */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">Upload Queue</h2>
-          
-          {uploadedFiles.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              <p>No files in queue</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                      {file.type === 'image' ? <Image size={16} /> : 
-                       file.type === 'document' ? <FileText size={16} /> : 
-                       <FileText size={16} />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{file.file.name}</p>
-                      <p className="text-xs text-gray-500">{(file.file.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Upload and Metadata */}
+        <div className="space-y-6">
+          {/* Upload Type Selection */}
+          <Card>
+            <h2 className="text-lg font-semibold mb-4">Upload Settings</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Type</label>
+                <div className="flex space-x-4">
+                  {['image', 'document'].map((type) => (
+                    <Button
+                      key={type}
+                      type="button"
+                      variant={uploadType === type ? 'primary' : 'outline'}
+                      size="small"
+                      icon={type === 'image' ? Image : FileText}
+                      onClick={() => setUploadType(type)}
+                    >
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Button>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* File Upload Area */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Files</label>
+                <FileUploadZone
+                  uploadType={uploadType}
+                  isDragging={isDragging}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, uploadType, handleFilesAdded)}
+                  onFileInput={(e) => handleFileInput(e, uploadType, handleFilesAdded)}
+                  inputRef={fileInputRef}
+                  files={uploadedFiles}
+                />
+              </div>
             </div>
-          )}
+          </Card>
+
+          {/* Metadata Form */}
+          <Card>
+            <h2 className="text-lg font-semibold mb-4">Question Metadata</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Country Selection */}
+              <div className="col-span-2">
+                <SelectField
+                  label="Country *"
+                  value={metadata.country}
+                  onChange={(e) => handleMetadataChange('country', e.target.value)}
+                  options={[
+                    { value: '', label: 'Select Country' },
+                    { value: 'sri_lanka', label: 'Sri Lanka' },
+                    { value: 'other', label: 'Other' }
+                  ]}
+                  required
+                />
+              </div>
+
+              {/* Exam Type (only show if country is selected) */}
+              {metadata.country && (
+                <div className="col-span-2">
+                  <SelectField
+                    label="Exam Type *"
+                    value={metadata.examType}
+                    onChange={(e) => handleMetadataChange('examType', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Exam Type' },
+                      ...(availableOptions.examTypes || []) // Add nullish coalescing for safety
+                    ]}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Stream Selection (only for A/L, not for Grade 5) */}
+              {metadata.examType === 'a_level' && (
+                <div className="col-span-2">
+                  <SelectField
+                    label="Stream *"
+                    value={metadata.stream}
+                    onChange={(e) => handleMetadataChange('stream', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Stream' },
+                      ...(availableOptions.streams || []) // Add nullish coalescing for safety
+                    ]}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Subject Selection (show for A/L and O/L, but NOT for Grade 5) */}
+              {(metadata.examType && metadata.examType !== 'grade5' && (metadata.stream || metadata.examType === 'o_level')) && (
+                <div className="col-span-2">
+                  <SelectField
+                    label="Subject *"
+                    value={metadata.subject}
+                    onChange={(e) => handleMetadataChange('subject', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Subject' },
+                      ...(availableOptions.subjects || []) // Add nullish coalescing for safety
+                    ]}
+                    required={metadata.examType !== 'grade5'}
+                  />
+                </div>
+              )}
+
+              {/* Paper Type for Science Subjects (Physics, Chemistry, Biology) */}
+              {['physics', 'chemistry', 'biology'].includes(metadata.subject) && (
+                <div className="col-span-2">
+                  <SelectField
+                    label="Paper Type *"
+                    value={metadata.paperType}
+                    onChange={(e) => handleMetadataChange('paperType', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Paper Type' },
+                      ...(availableOptions.paperTypes || []) // Add nullish coalescing for safety
+                    ]}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Paper Type for Grade 5 Scholarship (always show when Grade 5 is selected) */}
+              {metadata.examType === 'grade5' && (
+                <div className="col-span-2">
+                  <SelectField
+                    label="Paper Type *"
+                    value={metadata.paperType}
+                    onChange={(e) => handleMetadataChange('paperType', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Paper Type' },
+                      ...(availableOptions.paperTypes || []) // Add nullish coalescing for safety
+                    ]}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Paper Category */}
+              <div className="col-span-2">
+                <SelectField
+                  label="Paper Category *"
+                  value={metadata.paperCategory}
+                  onChange={(e) => handleMetadataChange('paperCategory', e.target.value)}
+                  options={[
+                    { value: '', label: 'Select Category' },
+                    { value: 'Model', label: 'Model Paper' },
+                    { value: 'PastPaper', label: 'Past Paper' },
+                    { value: 'TermTest', label: 'Term Test' }
+                  ]}
+                  required
+                />
+              </div>
+
+              {/* Conditional fields based on paper category */}
+              {metadata.paperCategory === 'PastPaper' && (
+                <div className="col-span-2">
+                  <InputField
+                    label="Year"
+                    type="number"
+                    min="2000"
+                    max="2030"
+                    value={metadata.year}
+                    onChange={(e) => handleMetadataChange('year', e.target.value)}
+                    placeholder="e.g., 2024"
+                  />
+                </div>
+              )}
+
+              {metadata.paperCategory === 'TermTest' && (
+                <>
+                  <SelectField
+                    label="Term"
+                    value={metadata.term}
+                    onChange={(e) => handleMetadataChange('term', e.target.value)}
+                    options={[
+                      { value: '', label: 'Select Term' },
+                      { value: 'Term1', label: 'Term 1' },
+                      { value: 'Term2', label: 'Term 2' },
+                      { value: 'Term3', label: 'Term 3' }
+                    ]}
+                  />
+                  <InputField
+                    label="School Name"
+                    value={metadata.schoolName}
+                    onChange={(e) => handleMetadataChange('schoolName', e.target.value)}
+                    placeholder="Enter school name"
+                  />
+                </>
+              )}
+
+              <div className="col-span-2">
+                <InputField
+                  label="Uploader Name"
+                  value={metadata.uploader}
+                  onChange={(e) => handleMetadataChange('uploader', e.target.value)}
+                  placeholder="Your name (optional)"
+                />
+              </div>
+            </div>
+          </Card>
+
+          <Button type="submit" variant="primary" size="large" icon={Upload} className="w-full">
+            Upload Questions
+          </Button>
         </div>
-      </div>
+
+        {/* Right Column: Upload Queue */}
+        <UploadQueue
+          files={uploadedFiles}
+          onRemoveFile={removeFile}
+          onClearAll={clearAllFiles}
+        />
+      </form>
     </div>
   );
 };
 
-export default AdminQuestionUpload;
+export default QuestionUpload;
