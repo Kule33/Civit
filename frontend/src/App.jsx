@@ -35,7 +35,7 @@ function App() {
         <Route index element={ // 'index' makes this the default child route for '/'
           <div className="text-center mt-10">
             <h2 className="text-4xl font-semibold text-gray-800">Welcome to Paper Master!</h2>
-            <p className="text-lg text-gray-600 mt-2">Please navigate using the links above.</p>
+            <p className="text-lg text-gray-600 mt-2">Build your own paper.</p>
             <div className="mt-4">
               <img src="https://via.placeholder.com/600x300?text=Welcome+to+Paper+Master" alt="Welcome Image" className="mx-auto rounded-lg shadow-lg"/>
             </div>
