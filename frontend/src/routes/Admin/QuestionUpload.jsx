@@ -11,11 +11,15 @@ import UploadQueue from '../../components/upload/UploadQueue.jsx';
 import { useFileUpload } from '../../hooks/useFileUpload.js';
 import { useMetadata } from '../../hooks/useMetadata.js';
 import { uploadQuestion, testBackendConnection } from '../../services/questionService.js';
+import { useSubmission } from '../../context/SubmissionContext'; // ADD THIS IMPORT
 
 const QuestionUpload = () => {
   const fileInputRef = useRef(null);
   const [uploadType, setUploadType] = useState('image');
   const [isTesting, setIsTesting] = useState(false);
+
+  // ADD THIS: Use the submission service
+  const { showOverlay } = useSubmission();
 
   const {
     uploadedFiles,
@@ -79,6 +83,13 @@ const QuestionUpload = () => {
     }
 
     try {
+      // ADD THIS: Show overlay before starting upload
+      showOverlay({
+        status: 'loading',
+        message: 'Uploading your questions...',
+        autoClose: false
+      });
+
       updateFileStatus(filesToUpload[0].id, { status: 'uploading', progress: 0 });
 
       const response = await uploadQuestion(
@@ -90,14 +101,28 @@ const QuestionUpload = () => {
       );
 
       console.log('Upload successful:', response);
-      alert('File uploaded successfully!');
+      
+      // ADD THIS: Update overlay to show success
+      showOverlay({
+        status: 'success',
+        message: 'Questions uploaded successfully!',
+        autoClose: true,
+        autoCloseDelay: 2000
+      });
       
       updateFileStatus(filesToUpload[0].id, { status: 'completed' });
       clearAllFiles();
       resetMetadata();
 
     } catch (error) {
-      alert('Upload failed. Please check the console for details.');
+      // ADD THIS: Update overlay to show error
+      showOverlay({
+        status: 'error',
+        message: 'Upload failed. Please try again.',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+      
       console.error('Upload error:', error);
       updateFileStatus(filesToUpload[0].id, { status: 'error' });
     }
