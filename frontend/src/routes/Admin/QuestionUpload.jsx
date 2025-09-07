@@ -1,20 +1,22 @@
-import React, { useRef } from 'react';
+// src/routes/Admin/QuestionUpload.jsx
+import React, { useRef, useState } from 'react';
 import { Upload, Image, FileText, Filter } from 'lucide-react';
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
-import PageHeader from '../../components/ui/PageHeader';
-import InputField from '../../components/ui/InputField';
-import SelectField from '../../components/ui/SelectField';
-import FileUploadZone from '../../components/upload/FileUploadZone';
-import UploadQueue from '../../components/upload/UploadQueue';
-import { useFileUpload } from '../../hooks/useFileUpload';
-import { useMetadata } from '../../hooks/useMetadata';
+import Button from '../../components/ui/Button.jsx';
+import Card from '../../components/ui/card.jsx';
+import PageHeader from '../../components/ui/PageHeader.jsx';
+import InputField from '../../components/ui/InputField.jsx';
+import SelectField from '../../components/ui/SelectField.jsx';
+import FileUploadZone from '../../components/upload/FileUploadZone.jsx';
+import UploadQueue from '../../components/upload/UploadQueue.jsx';
+import { useFileUpload } from '../../hooks/useFileUpload.js';
+import { useMetadata } from '../../hooks/useMetadata.js';
+import { uploadQuestion, testBackendConnection } from '../../services/questionService.js';
 
 const QuestionUpload = () => {
   const fileInputRef = useRef(null);
-  const [uploadType, setUploadType] = React.useState('image');
-  
-  // Use custom hooks
+  const [uploadType, setUploadType] = useState('image');
+  const [isTesting, setIsTesting] = useState(false);
+
   const {
     uploadedFiles,
     isDragging,
@@ -32,51 +34,73 @@ const QuestionUpload = () => {
     metadata,
     availableOptions,
     updateMetadata,
-    validateMetadata
+    validateMetadata,
+    resetMetadata
   } = useMetadata();
 
-  // Event handlers
+  // Test backend connection
+  const testConnection = async () => {
+    setIsTesting(true);
+    try {
+      await testBackendConnection();
+      alert('✅ Backend connection successful!');
+    } catch (error) {
+      alert('❌ Backend connection failed. Check console for details.');
+      console.error('Backend connection error:', error);
+    }
+    setIsTesting(false);
+  };
+
   const handleFilesAdded = (files, type) => {
-    addFiles(files, type);
+    // For single file upload, clear existing files first
+    if (files.length > 0) {
+      clearAllFiles();
+      addFiles([files[0]], type); // Only take the first file
+    }
   };
 
   const handleMetadataChange = (field, value) => {
     updateMetadata(field, value);
   };
 
-  const simulateUpload = async () => {
-    for (const file of uploadedFiles) {
-      updateFileStatus(file.id, { status: 'uploading', progress: 0 });
-      
-      // Simulate progress
-      for (let progress = 0; progress <= 100; progress += 10) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        updateFileStatus(file.id, { progress });
-      }
-      
-      updateFileStatus(file.id, { status: 'completed' });
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (uploadedFiles.length === 0) {
-      alert('Please select at least one file to upload');
+
+    const filesToUpload = uploadedFiles.filter(f => f.status === 'pending');
+
+    if (filesToUpload.length !== 1) {
+      alert('Please select exactly one file to upload');
       return;
     }
 
     if (!validateMetadata()) {
-      if (metadata.examType === 'grade5') {
-        alert('Please fill in all required fields (Country, Exam Type, and Paper Type)');
-      } else {
-        alert('Please fill in all required fields (Country, Exam Type, and Subject)');
-      }
+      alert('Please fill in all required fields');
       return;
     }
 
-    await simulateUpload();
-    alert('Files uploaded successfully! (This is a simulation)');
+    try {
+      updateFileStatus(filesToUpload[0].id, { status: 'uploading', progress: 0 });
+
+      const response = await uploadQuestion(
+        metadata,
+        filesToUpload,
+        (progress) => {
+          updateFileStatus(filesToUpload[0].id, { progress });
+        }
+      );
+
+      console.log('Upload successful:', response);
+      alert('File uploaded successfully!');
+      
+      updateFileStatus(filesToUpload[0].id, { status: 'completed' });
+      clearAllFiles();
+      resetMetadata();
+
+    } catch (error) {
+      alert('Upload failed. Please check the console for details.');
+      console.error('Upload error:', error);
+      updateFileStatus(filesToUpload[0].id, { status: 'error' });
+    }
   };
 
   return (
@@ -85,16 +109,27 @@ const QuestionUpload = () => {
         title="Question Upload"
         subtitle="Upload questions and add metadata for better organization"
         actions={
-          <Button variant="secondary" icon={Filter}>
-            Manage Questions
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="secondary" 
+              icon={Filter}
+              onClick={() => alert('Manage questions feature coming soon')}
+            >
+              Manage Questions
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={testConnection}
+              disabled={isTesting}
+            >
+              {isTesting ? 'Testing...' : 'Test Connection'}
+            </Button>
+          </div>
         }
       />
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Upload and Metadata */}
         <div className="space-y-6">
-          {/* Upload Type Selection */}
           <Card>
             <h2 className="text-lg font-semibold mb-4">Upload Settings</h2>
             <div className="space-y-4">
@@ -116,9 +151,10 @@ const QuestionUpload = () => {
                 </div>
               </div>
 
-              {/* File Upload Area */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Files</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload File (Single File Only)
+                </label>
                 <FileUploadZone
                   uploadType={uploadType}
                   isDragging={isDragging}
@@ -128,16 +164,17 @@ const QuestionUpload = () => {
                   onFileInput={(e) => handleFileInput(e, uploadType, handleFilesAdded)}
                   inputRef={fileInputRef}
                   files={uploadedFiles}
+                  maxFiles={1}
                 />
               </div>
             </div>
           </Card>
 
-          {/* Metadata Form */}
+          {/* METADATA FORM SECTION - RESTORED */}
           <Card>
             <h2 className="text-lg font-semibold mb-4">Question Metadata</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
+
               {/* Country Selection */}
               <div className="col-span-2">
                 <SelectField
@@ -162,7 +199,7 @@ const QuestionUpload = () => {
                     onChange={(e) => handleMetadataChange('examType', e.target.value)}
                     options={[
                       { value: '', label: 'Select Exam Type' },
-                      ...(availableOptions.examTypes || []) // Add nullish coalescing for safety
+                      ...(availableOptions.examTypes || [])
                     ]}
                     required
                   />
@@ -178,7 +215,7 @@ const QuestionUpload = () => {
                     onChange={(e) => handleMetadataChange('stream', e.target.value)}
                     options={[
                       { value: '', label: 'Select Stream' },
-                      ...(availableOptions.streams || []) // Add nullish coalescing for safety
+                      ...(availableOptions.streams || [])
                     ]}
                     required
                   />
@@ -194,7 +231,7 @@ const QuestionUpload = () => {
                     onChange={(e) => handleMetadataChange('subject', e.target.value)}
                     options={[
                       { value: '', label: 'Select Subject' },
-                      ...(availableOptions.subjects || []) // Add nullish coalescing for safety
+                      ...(availableOptions.subjects || [])
                     ]}
                     required={metadata.examType !== 'grade5'}
                   />
@@ -210,7 +247,7 @@ const QuestionUpload = () => {
                     onChange={(e) => handleMetadataChange('paperType', e.target.value)}
                     options={[
                       { value: '', label: 'Select Paper Type' },
-                      ...(availableOptions.paperTypes || []) // Add nullish coalescing for safety
+                      ...(availableOptions.paperTypes || [])
                     ]}
                     required
                   />
@@ -226,7 +263,7 @@ const QuestionUpload = () => {
                     onChange={(e) => handleMetadataChange('paperType', e.target.value)}
                     options={[
                       { value: '', label: 'Select Paper Type' },
-                      ...(availableOptions.paperTypes || []) // Add nullish coalescing for safety
+                      ...(availableOptions.paperTypes || [])
                     ]}
                     required
                   />
@@ -302,11 +339,11 @@ const QuestionUpload = () => {
           </Button>
         </div>
 
-        {/* Right Column: Upload Queue */}
         <UploadQueue
           files={uploadedFiles}
           onRemoveFile={removeFile}
           onClearAll={clearAllFiles}
+          maxFiles={1}
         />
       </form>
     </div>
