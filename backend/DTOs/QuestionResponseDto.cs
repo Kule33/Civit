@@ -17,6 +17,7 @@ namespace backend.DTOs
         public string? SchoolName { get; set; }
         public string? Uploader { get; set; }
         public string FileUrl { get; set; } = string.Empty; // The publicly accessible URL
+        public string? FilePublicId { get; set; } // <--- ADD THIS LINE
         public string? UniqueKey { get; set; }
         public DateTime UploadDate { get; set; }
     }

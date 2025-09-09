@@ -1,4 +1,3 @@
-// backend/Controllers/QuestionsController.cs
 using backend.DTOs;
 using backend.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -22,8 +21,8 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        [Consumes("multipart/form-data")]
-        public async Task<ActionResult<QuestionResponseDto>> UploadQuestion([FromForm] QuestionUploadDto uploadDto)
+        [Consumes("application/json")] // Changed from multipart/form-data
+        public async Task<ActionResult<QuestionResponseDto>> UploadQuestion([FromBody] QuestionUploadDto uploadDto)
         {
             // Debug logging
             Console.WriteLine("=== UPLOAD REQUEST RECEIVED ===");
@@ -31,7 +30,7 @@ namespace backend.Controllers
             Console.WriteLine($"ExamType: {uploadDto?.ExamType}");
             Console.WriteLine($"Subject: {uploadDto?.Subject}");
             Console.WriteLine($"PaperCategory: {uploadDto?.PaperCategory}");
-            Console.WriteLine($"File: {uploadDto?.File?.FileName} ({uploadDto?.File?.Length} bytes)");
+            Console.WriteLine($"FileUrl: {uploadDto?.FileUrl}");
             Console.WriteLine("==============================");
 
             if (!ModelState.IsValid)
@@ -51,12 +50,6 @@ namespace backend.Controllers
             try
             {
                 var result = await _questionService.UploadQuestionAsync(uploadDto);
-
-                if (result == null)
-                {
-                    return StatusCode(500, "Failed to upload question or file to external storage.");
-                }
-
                 return CreatedAtAction(nameof(GetQuestionById), new { id = result.Id }, result);
             }
             catch (Exception ex)

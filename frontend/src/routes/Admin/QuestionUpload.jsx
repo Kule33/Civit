@@ -1,6 +1,6 @@
-// src/routes/Admin/QuestionUpload.jsx
+// src/pages/QuestionUpload.jsx
 import React, { useRef, useState } from 'react';
-import { Upload, Image, FileText, Filter } from 'lucide-react';
+import { Upload, Image, FileText, Filter } from 'lucide-react'; // Renamed Image to avoid conflict with HTML <img>
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -10,17 +10,19 @@ import FileUploadZone from '../../components/upload/FileUploadZone.jsx';
 import UploadQueue from '../../components/upload/UploadQueue.jsx';
 import { useFileUpload } from '../../hooks/useFileUpload.js';
 import { useMetadata } from '../../hooks/useMetadata.js';
-import { uploadQuestion, testBackendConnection } from '../../services/questionService.js';
-import { useSubmission } from '../../context/SubmissionContext'; // ADD THIS IMPORT
+import { testBackendConnection, saveQuestionMetadata } from '../../services/questionService.js';
+import { useSubmission } from '../../context/SubmissionContext';
+import { uploadWithProgress } from '../../services/cloudinaryService';
 
 const QuestionUpload = () => {
   const fileInputRef = useRef(null);
   const [uploadType, setUploadType] = useState('image');
   const [isTesting, setIsTesting] = useState(false);
-
-  // ADD THIS: Use the submission service
+  
+  // Context for showing global overlays (loading, success, error messages)
   const { showOverlay } = useSubmission();
 
+  // Custom hook for file management (add, remove, track status, etc.)
   const {
     uploadedFiles,
     isDragging,
@@ -34,6 +36,7 @@ const QuestionUpload = () => {
     updateFileStatus
   } = useFileUpload();
 
+  // Custom hook for managing question metadata and dynamic options
   const {
     metadata,
     availableOptions,
@@ -42,7 +45,137 @@ const QuestionUpload = () => {
     resetMetadata
   } = useMetadata();
 
-  // Test backend connection
+  // Handler for when files are added (either by drag/drop or file input)
+  const handleFilesAdded = (files, type) => {
+    if (files.length > 0) {
+      clearAllFiles(); // Clear previous files if only one is allowed
+      addFiles([files[0]], type); // Add the newly selected file
+    }
+  };
+
+  // Main function to handle the submission of the form
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Filter for files that are pending upload
+    const filesToUpload = uploadedFiles.filter(f => f.status === 'pending');
+
+    // Basic validation: Ensure exactly one file is selected
+    if (filesToUpload.length !== 1) {
+      showOverlay({
+        status: 'error',
+        message: 'Please select exactly one file to upload.',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+      return;
+    }
+
+    // Validate metadata using the custom hook's validation logic
+    if (!validateMetadata()) {
+      showOverlay({
+        status: 'error',
+        message: 'Please fill in all required metadata fields.',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+      return;
+    }
+
+    try {
+      // Show loading overlay for the entire upload process
+      showOverlay({
+        status: 'loading',
+        message: 'Uploading file directly to Cloudinary...',
+        autoClose: false // Keep open until success/error
+      });
+
+      // Update the status of the file in the queue to 'uploading'
+      updateFileStatus(filesToUpload[0].id, { status: 'uploading', progress: 0 });
+
+      // Step 1: Upload the file directly to Cloudinary
+      const uploadResult = await uploadWithProgress(
+        filesToUpload[0].file, // The actual File object
+        {
+          // Metadata sent to Cloudinary for folder structuring (optional, but good for organization)
+          country: metadata.country,
+          examType: metadata.examType,
+          stream: metadata.stream,
+          subject: metadata.subject,
+          paperType: metadata.paperType,
+          paperCategory: metadata.paperCategory
+        },
+        (progress) => {
+          // Callback to update file upload progress in the UI
+          updateFileStatus(filesToUpload[0].id, { progress });
+        }
+      );
+
+      // Step 2: Prepare metadata for the backend, handling nullable fields
+      const cleanedMetadata = { ...metadata };
+
+      // Convert empty strings to null for C# nullable types (int?, string?)
+      if (cleanedMetadata.year === '') {
+        cleanedMetadata.year = null; // C# int? expects null or an int, not an empty string
+      } else {
+        // Ensure year is an actual number if it's not empty, for proper serialization
+        // The InputField with type="number" already handles this in most browsers,
+        // but this adds robustness.
+        const parsedYear = parseInt(cleanedMetadata.year, 10);
+        cleanedMetadata.year = isNaN(parsedYear) ? null : parsedYear;
+      }
+      
+      if (cleanedMetadata.term === '') cleanedMetadata.term = null;
+      if (cleanedMetadata.schoolName === '') cleanedMetadata.schoolName = null;
+      if (cleanedMetadata.uploader === '') cleanedMetadata.uploader = null;
+      if (cleanedMetadata.stream === '') cleanedMetadata.stream = null;
+      if (cleanedMetadata.subject === '') cleanedMetadata.subject = null;
+      if (cleanedMetadata.paperType === '') cleanedMetadata.paperType = null;
+      
+      // Step 3: Send metadata along with Cloudinary results to your backend
+      await saveQuestionMetadata({
+        ...cleanedMetadata, // Use the cleaned metadata object
+        fileUrl: uploadResult.secureUrl,       // Cloudinary file URL
+        filePublicId: uploadResult.publicId,   // Cloudinary public ID for managing the file
+        fileName: uploadResult.fileName,       // Original file name
+        fileSize: uploadResult.bytes,          // File size in bytes
+        fileFormat: uploadResult.format        // File format (e.g., "jpg", "pdf")
+      });
+
+      // Show success overlay
+      showOverlay({
+        status: 'success',
+        message: 'File uploaded to Cloudinary and metadata saved!',
+        autoClose: true,
+        autoCloseDelay: 2000
+      });
+
+      // Update file status to 'completed' in the UI
+      updateFileStatus(filesToUpload[0].id, { status: 'completed' });
+      
+      // After a short delay, clear uploaded files and reset form fields
+      setTimeout(() => {
+        clearAllFiles();
+        resetMetadata();
+      }, 1500);
+
+    } catch (error) {
+      // If any error occurs during upload or metadata save
+      console.error("Submission error:", error); // Log full error for debugging
+      // Update file status to 'error' in the UI
+      updateFileStatus(filesToUpload[0].id, { status: 'error' });
+      
+      // Show error overlay with details from the backend response if available
+      showOverlay({
+        status: 'error',
+        message: `Upload failed: ${error.response?.data?.title || error.message || 'Unknown error'}`,
+        autoClose: true,
+        autoCloseDelay: 5000 // Give more time to read error
+      });
+    }
+  };
+
+  // Function to test backend connection (for debugging/development)
   const testConnection = async () => {
     setIsTesting(true);
     try {
@@ -55,77 +188,9 @@ const QuestionUpload = () => {
     setIsTesting(false);
   };
 
-  const handleFilesAdded = (files, type) => {
-    // For single file upload, clear existing files first
-    if (files.length > 0) {
-      clearAllFiles();
-      addFiles([files[0]], type); // Only take the first file
-    }
-  };
-
+  // Handler for metadata field changes
   const handleMetadataChange = (field, value) => {
     updateMetadata(field, value);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const filesToUpload = uploadedFiles.filter(f => f.status === 'pending');
-
-    if (filesToUpload.length !== 1) {
-      alert('Please select exactly one file to upload');
-      return;
-    }
-
-    if (!validateMetadata()) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      // ADD THIS: Show overlay before starting upload
-      showOverlay({
-        status: 'loading',
-        message: 'Uploading your questions...',
-        autoClose: false
-      });
-
-      updateFileStatus(filesToUpload[0].id, { status: 'uploading', progress: 0 });
-
-      const response = await uploadQuestion(
-        metadata,
-        filesToUpload,
-        (progress) => {
-          updateFileStatus(filesToUpload[0].id, { progress });
-        }
-      );
-
-      console.log('Upload successful:', response);
-      
-      // ADD THIS: Update overlay to show success
-      showOverlay({
-        status: 'success',
-        message: 'Questions uploaded successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000
-      });
-      
-      updateFileStatus(filesToUpload[0].id, { status: 'completed' });
-      clearAllFiles();
-      resetMetadata();
-
-    } catch (error) {
-      // ADD THIS: Update overlay to show error
-      showOverlay({
-        status: 'error',
-        message: 'Upload failed. Please try again.',
-        autoClose: true,
-        autoCloseDelay: 3000
-      });
-      
-      console.error('Upload error:', error);
-      updateFileStatus(filesToUpload[0].id, { status: 'error' });
-    }
   };
 
   return (
@@ -189,13 +254,12 @@ const QuestionUpload = () => {
                   onFileInput={(e) => handleFileInput(e, uploadType, handleFilesAdded)}
                   inputRef={fileInputRef}
                   files={uploadedFiles}
-                  maxFiles={1}
                 />
               </div>
             </div>
           </Card>
 
-          {/* METADATA FORM SECTION - RESTORED */}
+          {/* METADATA FORM SECTION */}
           <Card>
             <h2 className="text-lg font-semibold mb-4">Question Metadata</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -258,7 +322,8 @@ const QuestionUpload = () => {
                       { value: '', label: 'Select Subject' },
                       ...(availableOptions.subjects || [])
                     ]}
-                    required={metadata.examType !== 'grade5'}
+                    // Subject is not required for Grade 5
+                    required={metadata.examType !== 'grade5' && !!(metadata.stream || metadata.examType === 'o_level')}
                   />
                 </div>
               )}
@@ -322,6 +387,7 @@ const QuestionUpload = () => {
                     value={metadata.year}
                     onChange={(e) => handleMetadataChange('year', e.target.value)}
                     placeholder="e.g., 2024"
+                    // Year is optional, so no 'required' attribute here
                   />
                 </div>
               )}
@@ -338,12 +404,14 @@ const QuestionUpload = () => {
                       { value: 'Term2', label: 'Term 2' },
                       { value: 'Term3', label: 'Term 3' }
                     ]}
+                    // Term is optional
                   />
                   <InputField
                     label="School Name"
                     value={metadata.schoolName}
                     onChange={(e) => handleMetadataChange('schoolName', e.target.value)}
                     placeholder="Enter school name"
+                    // School Name is optional
                   />
                 </>
               )}
@@ -368,7 +436,6 @@ const QuestionUpload = () => {
           files={uploadedFiles}
           onRemoveFile={removeFile}
           onClearAll={clearAllFiles}
-          maxFiles={1}
         />
       </form>
     </div>
