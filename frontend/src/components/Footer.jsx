@@ -52,7 +52,7 @@ const Footer = () => {
               Specializing in educational technology solutions
             </p>
             <a 
-              href="https://cvit.com" 
+              href="######" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
