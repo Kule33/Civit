@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getAllSubjects, getAllSchools } from '../services/questionService';
 
 export const useMetadata = (initialMetadata = {}) => {
   const [metadata, setMetadata] = useState({
@@ -19,10 +20,13 @@ export const useMetadata = (initialMetadata = {}) => {
     examTypes: [],
     streams: [],
     subjects: [],
-    paperTypes: []
+    paperTypes: [],
+    schools: [] // Added schools list
   });
 
-  // Define all possible options with proper capitalization
+  const [loading, setLoading] = useState(false);
+
+  // Define all possible options
   const allOptions = {
     countries: [
       { value: 'sri_lanka', label: 'Sri Lanka' },
@@ -127,12 +131,35 @@ export const useMetadata = (initialMetadata = {}) => {
         { value: 'essay', label: 'Essay Paper' },
         { value: 'practical', label: 'Practical Paper' }
       ],
-      // For Grade 5 Scholarship - general paper types
       grade5: [
         { value: 'mcq', label: 'MCQ Paper' },
         { value: 'essay', label: 'Essay Paper' }
       ]
     }
+  };
+
+  // Load schools and subjects from backend on mount
+  useEffect(() => {
+    loadBackendData();
+  }, []);
+
+  const loadBackendData = async () => {
+    setLoading(true);
+    try {
+      const [subjects, schools] = await Promise.all([
+        getAllSubjects(),
+        getAllSchools()
+      ]);
+
+      setAvailableOptions(prev => ({
+        ...prev,
+        backendSubjects: subjects,
+        backendSchools: schools
+      }));
+    } catch (error) {
+      console.error('Failed to load backend data:', error);
+    }
+    setLoading(false);
   };
 
   // Update available options based on current selections
@@ -141,7 +168,8 @@ export const useMetadata = (initialMetadata = {}) => {
       examTypes: [],
       streams: [],
       subjects: [],
-      paperTypes: []
+      paperTypes: [],
+      schools: availableOptions.backendSchools || []
     };
 
     // Set exam types based on country
@@ -154,7 +182,7 @@ export const useMetadata = (initialMetadata = {}) => {
       newAvailableOptions.streams = allOptions.streams[metadata.examType] || [];
     }
 
-    // Set subjects based on stream or exam type (except for Grade 5)
+    // Set subjects based on stream or exam type
     if (metadata.examType !== 'grade5') {
       if (metadata.stream) {
         newAvailableOptions.subjects = allOptions.subjects[metadata.stream] || [];
@@ -170,7 +198,7 @@ export const useMetadata = (initialMetadata = {}) => {
       newAvailableOptions.paperTypes = allOptions.paperTypes.grade5 || [];
     }
 
-    setAvailableOptions(newAvailableOptions);
+    setAvailableOptions(prev => ({ ...prev, ...newAvailableOptions }));
   }, [metadata.country, metadata.examType, metadata.stream, metadata.subject]);
 
   const updateMetadata = (field, value) => {
@@ -222,6 +250,7 @@ export const useMetadata = (initialMetadata = {}) => {
   return {
     metadata,
     availableOptions,
+    loading,
     updateMetadata,
     validateMetadata,
     resetMetadata

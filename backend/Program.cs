@@ -1,4 +1,3 @@
-// backend/Program.cs
 using backend.Config;
 using backend.Data;
 using backend.Repositories;
@@ -20,14 +19,31 @@ builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Configure Cloudinary
+builder.Services.AddSingleton(provider => {
+    var config = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<CloudinarySettings>>().Value;
+    return new CloudinaryDotNet.Cloudinary(new Account(
+        config.CloudName,
+        config.ApiKey,
+        config.ApiSecret
+    ));
+});
+
 // Register Repositories
 builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+builder.Services.AddScoped<ISubjectRepository, SubjectRepository>(); // Register new Subject Repository
+builder.Services.AddScoped<ISchoolRepository, SchoolRepository>();   // Register new School Repository
 
-// Register Cloudinary Service
+// Register Services
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
-// Register Question Service
-builder.Services.AddScoped<IQuestionService, QuestionService>();
+// Update QuestionService to accept new repositories
+builder.Services.AddScoped<IQuestionService, QuestionService>(provider =>
+    new QuestionService(
+        provider.GetRequiredService<IQuestionRepository>(),
+        provider.GetRequiredService<ISubjectRepository>(), // Pass Subject Repository
+        provider.GetRequiredService<ISchoolRepository>()   // Pass School Repository
+    ));
 
 builder.Services.AddControllers();
 
