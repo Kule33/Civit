@@ -1,3 +1,4 @@
+// components/pages/QuestionUpload.jsx
 import React, { useRef, useState } from 'react';
 import { Upload, Image, FileText, Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
@@ -7,12 +8,13 @@ import InputField from '../../components/ui/InputField.jsx';
 import SelectField from '../../components/ui/SelectField.jsx';
 import FileUploadZone from '../../components/upload/FileUploadZone.jsx';
 import UploadQueue from '../../components/upload/UploadQueue.jsx';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx'; // Import the new component
 import { useFileUpload } from '../../hooks/useFileUpload.js';
 import { useMetadata } from '../../hooks/useMetadata.js';
 import { testBackendConnection, saveQuestionMetadata } from '../../services/questionService.js';
 import { useSubmission } from '../../context/SubmissionContext';
 import { uploadWithProgress } from '../../services/cloudinaryService';
-import axios from 'axios';
+
 
 const QuestionUpload = () => {
   const fileInputRef = useRef(null);
@@ -40,7 +42,8 @@ const QuestionUpload = () => {
     availableOptions,
     updateMetadata,
     validateMetadata,
-    resetMetadata
+    resetMetadata,
+    refreshSchools
   } = useMetadata();
 
   // Mapping from frontend values to backend database names
@@ -172,6 +175,9 @@ const QuestionUpload = () => {
       console.log('🚀 Final data for backend:', backendData);
 
       await saveQuestionMetadata(backendData);
+
+      // Refresh schools so newly created school appears in dropdown
+      await refreshSchools();
 
       showOverlay({
         status: 'success',
@@ -431,24 +437,21 @@ const QuestionUpload = () => {
                       ]}
                     />
                     
-                    {/* School Name - Either select from list or free text */}
+                    {/* School Name - Searchable Select or free text */}
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         School Name
                       </label>
                       <div className="grid grid-cols-1 gap-2">
-                        <select
+                        <SearchableSelect
                           value={metadata.schoolName}
                           onChange={(e) => handleMetadataChange('schoolName', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select School (optional)</option>
-                          {availableOptions.schools?.map(school => (
-                            <option key={school.id} value={school.name}>
-                              {school.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: '', label: 'Select School (optional)' },
+                            ...(availableOptions.schools?.map(school => ({ value: school.name, label: school.name })) || [])
+                          ]}
+                          placeholder="Search or Select School (optional)"
+                        />
                         <input
                           type="text"
                           value={metadata.schoolName}

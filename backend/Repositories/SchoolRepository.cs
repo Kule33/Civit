@@ -18,7 +18,15 @@ namespace backend.Repositories
 
         public async Task<School> AddSchoolAsync(School school)
         {
-            await _context.Schools.AddAsync(school); // FIXED: Changed from Subjects to Schools
+            // Handle databases where School.Id is NOT identity (manual assignment)
+            if (school.Id == 0)
+            {
+                var hasAny = await _context.Schools.AnyAsync();
+                var nextId = hasAny ? await _context.Schools.MaxAsync(s => s.Id) + 1 : 1;
+                school.Id = nextId;
+            }
+
+            await _context.Schools.AddAsync(school);
             await _context.SaveChangesAsync();
             return school;
         }
@@ -37,6 +45,8 @@ namespace backend.Repositories
         {
             return await _context.Schools.ToListAsync();
         }
+
+        // removed duplicate AddSchoolAsync implementation
 
         public async Task<bool> UpdateSchoolAsync(School school)
         {

@@ -60,7 +60,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // Your React frontend URL
+            policy.WithOrigins(
+                      "http://localhost:5173",
+                      "http://localhost:5174",
+                      "http://127.0.0.1:5173",
+                      "http://127.0.0.1:5174"
+                  ) // Allow local dev ports
                   .AllowAnyHeader()
                   .AllowAnyMethod();
             // If you need to allow credentials (cookies, auth tokens), add:

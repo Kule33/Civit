@@ -162,6 +162,19 @@ export const useMetadata = (initialMetadata = {}) => {
     setLoading(false);
   };
 
+  // Refresh only schools (e.g., after creating a new school)
+  const refreshSchools = async () => {
+    try {
+      const schools = await getAllSchools();
+      setAvailableOptions(prev => ({
+        ...prev,
+        backendSchools: schools
+      }));
+    } catch (error) {
+      console.error('Failed to refresh schools:', error);
+    }
+  };
+
   // Update available options based on current selections
   useEffect(() => {
     const newAvailableOptions = {
@@ -253,6 +266,7 @@ export const useMetadata = (initialMetadata = {}) => {
     loading,
     updateMetadata,
     validateMetadata,
-    resetMetadata
+    resetMetadata,
+    refreshSchools
   };
 };

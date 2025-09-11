@@ -48,15 +48,21 @@ namespace backend.Services
                 subjectId = subject.Id;
             }
 
-            // Resolve School if provided
+            // Resolve School if provided (auto-create if not found)
             if (!string.IsNullOrEmpty(uploadDto.SchoolName))
             {
                 var school = await _schoolRepository.GetSchoolByNameAsync(uploadDto.SchoolName);
                 if (school == null)
                 {
-                    throw new ArgumentException($"School '{uploadDto.SchoolName}' not found in database. Please ensure the school exists.");
+                    // Auto-create new school when it does not exist
+                    var newSchool = new School { Name = uploadDto.SchoolName };
+                    var created = await _schoolRepository.AddSchoolAsync(newSchool);
+                    schoolId = created.Id;
                 }
-                schoolId = school.Id;
+                else
+                {
+                    schoolId = school.Id;
+                }
             }
 
             // 2. Map DTO to Question model
