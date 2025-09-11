@@ -1,3 +1,4 @@
+// backend/DTOs/QuestionUploadDto.cs - Complete version from your original
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
@@ -16,9 +17,6 @@ namespace backend.DTOs
         public string? Term { get; set; }
         public string? SchoolName { get; set; }
         public string? Uploader { get; set; }
-
-        // Remove the File property since we'll handle uploads differently
-        // public IFormFile File { get; set; } = null!;
 
         // Add properties for Cloudinary upload results
         public string FileUrl { get; set; } = string.Empty;

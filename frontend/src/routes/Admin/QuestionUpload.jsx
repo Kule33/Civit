@@ -1,4 +1,4 @@
-// src/pages/QuestionUpload.jsx
+// components/pages/QuestionUpload.jsx
 import React, { useRef, useState } from 'react';
 import { Upload, Image, FileText, Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
@@ -8,11 +8,13 @@ import InputField from '../../components/ui/InputField.jsx';
 import SelectField from '../../components/ui/SelectField.jsx';
 import FileUploadZone from '../../components/upload/FileUploadZone.jsx';
 import UploadQueue from '../../components/upload/UploadQueue.jsx';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx'; // Import the new component
 import { useFileUpload } from '../../hooks/useFileUpload.js';
 import { useMetadata } from '../../hooks/useMetadata.js';
 import { testBackendConnection, saveQuestionMetadata } from '../../services/questionService.js';
 import { useSubmission } from '../../context/SubmissionContext';
 import { uploadWithProgress } from '../../services/cloudinaryService';
+
 
 const QuestionUpload = () => {
   const fileInputRef = useRef(null);
@@ -40,8 +42,40 @@ const QuestionUpload = () => {
     availableOptions,
     updateMetadata,
     validateMetadata,
-    resetMetadata
+    resetMetadata,
+    refreshSchools
   } = useMetadata();
+
+  // Mapping from frontend values to backend database names
+  const subjectValueToName = {
+    'pure_maths': 'Pure Mathematics',
+    'applied_maths': 'Applied Mathematics',
+    'physics': 'Physics',
+    'chemistry': 'Chemistry',
+    'biology': 'Biology',
+    'business_studies': 'Business Studies',
+    'accounting': 'Accounting',
+    'economics': 'Economics',
+    'engineering_tech': 'Engineering Technology',
+    'bio_systems_tech': 'Bio-Systems Technology',
+    'sinhala': 'Sinhala',
+    'history': 'History',
+    'geography': 'Geography',
+    'buddhism': 'Buddhism',
+    'english': 'English',
+    'tamil': 'Tamil',
+    'music': 'Music',
+    'art': 'Art',
+    'dancing': 'Dancing',
+    'drama': 'Drama',
+    'mathematics': 'Mathematics',
+    'science': 'Science',
+    'civics': 'Civics',
+    'ict': 'Information & Communication Technology',
+    'health': 'Health & Physical Education',
+    'commerce': 'Commerce',
+    'environment': 'Environment Related Activities'
+  };
 
   const handleFilesAdded = (files, type) => {
     if (files.length > 0) {
@@ -84,6 +118,8 @@ const QuestionUpload = () => {
 
       updateFileStatus(filesToUpload[0].id, { status: 'uploading', progress: 0 });
 
+      console.log('🔄 Starting Cloudinary upload with metadata:', metadata);
+      
       const uploadResult = await uploadWithProgress(
         filesToUpload[0].file,
         {
@@ -99,30 +135,49 @@ const QuestionUpload = () => {
         }
       );
 
-      const cleanedMetadata = { ...metadata };
+      console.log('✅ Cloudinary upload result:', uploadResult);
 
-      if (cleanedMetadata.year === '') {
-        cleanedMetadata.year = null;
-      } else {
-        const parsedYear = parseInt(cleanedMetadata.year, 10);
-        cleanedMetadata.year = isNaN(parsedYear) ? null : parsedYear;
+      // Clean metadata - Convert empty strings to null and transform subject
+      const cleanedMetadata = {
+        country: metadata.country,
+        examType: metadata.examType,
+        stream: metadata.stream || null,
+        subject: subjectValueToName[metadata.subject] || null, // Transform subject value to name
+        paperType: metadata.paperType || null,
+        paperCategory: metadata.paperCategory,
+        year: metadata.year ? parseInt(metadata.year, 10) : null,
+        term: metadata.term || null,
+        schoolName: metadata.schoolName || null,
+        uploader: metadata.uploader || null
+      };
+
+      console.log('🧹 Cleaned metadata:', cleanedMetadata);
+      console.log('📤 Upload result for backend:', uploadResult);
+
+      // Check if Cloudinary returned the required fields
+      if (!uploadResult.secureUrl && !uploadResult.fileUrl) {
+        throw new Error('Cloudinary upload failed - no URL returned');
       }
-      
-      if (cleanedMetadata.term === '') cleanedMetadata.term = null;
-      if (cleanedMetadata.schoolName === '') cleanedMetadata.schoolName = null;
-      if (cleanedMetadata.uploader === '') cleanedMetadata.uploader = null;
-      if (cleanedMetadata.stream === '') cleanedMetadata.stream = null;
-      if (cleanedMetadata.subject === '') cleanedMetadata.subject = null;
-      if (cleanedMetadata.paperType === '') cleanedMetadata.paperType = null;
-      
-      await saveQuestionMetadata({
+      if (!uploadResult.publicId && !uploadResult.filePublicId) {
+        throw new Error('Cloudinary upload failed - no publicId returned');
+      }
+
+      // Prepare data for backend
+      const backendData = {
         ...cleanedMetadata,
-        fileUrl: uploadResult.secureUrl,
-        filePublicId: uploadResult.publicId,
+        fileUrl: uploadResult.secureUrl || uploadResult.fileUrl,
+        filePublicId: uploadResult.publicId || uploadResult.filePublicId,
         fileName: uploadResult.fileName,
         fileSize: uploadResult.bytes,
         fileFormat: uploadResult.format
-      });
+      };
+
+      console.log('🚀 Final data for backend:', backendData);
+
+      await saveQuestionMetadata(backendData);
+
+      // Refresh schools so newly created school appears in dropdown
+      await refreshSchools();
 
       showOverlay({
         status: 'success',
@@ -139,12 +194,12 @@ const QuestionUpload = () => {
       }, 1500);
 
     } catch (error) {
-      console.error("Submission error:", error);
+      console.error("❌ Submission error:", error);
       updateFileStatus(filesToUpload[0].id, { status: 'error' });
       
       showOverlay({
         status: 'error',
-        message: `Upload failed: ${error.response?.data?.title || error.message || 'Unknown error'}`,
+        message: `Upload failed: ${error.response?.data || error.message || 'Unknown error'}`,
         autoClose: true,
         autoCloseDelay: 5000
       });
@@ -381,12 +436,31 @@ const QuestionUpload = () => {
                         { value: 'Term3', label: 'Term 3' }
                       ]}
                     />
-                    <InputField
-                      label="School Name"
-                      value={metadata.schoolName}
-                      onChange={(e) => handleMetadataChange('schoolName', e.target.value)}
-                      placeholder="Enter school name"
-                    />
+                    
+                    {/* School Name - Searchable Select or free text */}
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        School Name
+                      </label>
+                      <div className="grid grid-cols-1 gap-2">
+                        <SearchableSelect
+                          value={metadata.schoolName}
+                          onChange={(e) => handleMetadataChange('schoolName', e.target.value)}
+                          options={[
+                            { value: '', label: 'Select School (optional)' },
+                            ...(availableOptions.schools?.map(school => ({ value: school.name, label: school.name })) || [])
+                          ]}
+                          placeholder="Search or Select School (optional)"
+                        />
+                        <input
+                          type="text"
+                          value={metadata.schoolName}
+                          onChange={(e) => handleMetadataChange('schoolName', e.target.value)}
+                          placeholder="Or type school name manually"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
                   </>
                 )}
 
