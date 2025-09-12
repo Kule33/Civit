@@ -1,5 +1,7 @@
+// src/App.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { SubmissionProvider } from './context/SubmissionProvider'; // FIXED IMPORT PATH
 
 // Import your Layout component
 import MainLayout from './components/layouts/MainLayout.jsx';
@@ -13,46 +15,46 @@ import AdminQuestionUpload from './routes/Admin/QuestionUpload.jsx';
 import AdminManageQuestions from './routes/Admin/ManageQuestions.jsx';
 import AdminTypesetUpload from './routes/Admin/TypesetUpload.jsx';
 
-
-
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<MainLayout />}> {/* Use MainLayout for all routes */}
-       
+    <SubmissionProvider>
+      <Routes>
+        <Route path="/" element={<MainLayout />}>
+          {/* Teacher Routes */}
+          <Route path="teacher/dashboard" element={<TeacherDashboard />} />
+          <Route path="teacher/paper-builder" element={<PaperBuilder />} />
+          <Route path="teacher/teacher-payment" element={<TeacherPayment />} />
 
-        {/* Teacher Routes */}
-        <Route path="teacher/dashboard" element={<TeacherDashboard />} />
-        <Route path="teacher/paper-builder" element={<PaperBuilder />} />
-        <Route path="teacher/payment" element={<TeacherPayment />} />
+          {/* Admin Routes */}
+          <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
+          <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
+          <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
 
-        {/* Admin Routes */}
-        <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
-        <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
-        <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
 
-        {/* Default landing page */}
-        <Route index element={ // 'index' makes this the default child route for '/'
-          <div className="text-center mt-10">
-            <h2 className="text-4xl font-semibold text-gray-800">Welcome to Paper Master!</h2>
-            <p className="text-lg text-gray-600 mt-2">Build your own paper.</p>
-            <div className="mt-4">
-              <img src="https://via.placeholder.com/600x300?text=Welcome+to+Paper+Master" alt="Welcome Image" className="mx-auto rounded-lg shadow-lg"/>
+          {/* Default landing page */}
+          <Route index element={
+            <div className="text-center mt-10">
+              <h2 className="text-4xl font-semibold text-gray-800">Welcome to Paper Master!</h2>
+              <p className="text-lg text-gray-600 mt-2">Build your own paper.</p>
+              <div className="mt-4">
+                <img src="https://via.placeholder.com/600x300?text=Welcome+to+Paper+Master" alt="Welcome Image" className="mx-auto rounded-lg shadow-lg"/>
+              </div>
             </div>
-          </div>
-        } />
-        {/* 404 Not Found Page */}
-        <Route path="*" element={
-          <div className="text-center mt-10">
-            <h2 className="text-4xl font-semibold text-red-600">404 - Page Not Found</h2>
-            <p className="text-lg text-gray-600 mt-2">The page you are looking for does not exist.</p>
-            <div className="mt-4">
-              <img src="https://via.placeholder.com/400x200?text=404+Error" alt="404 Error Image" className="mx-auto rounded-lg shadow-lg"/>
+          } />
+          
+          {/* 404 Not Found Page */}
+          <Route path="*" element={
+            <div className="text-center mt-10">
+              <h2 className="text-4xl font-semibold text-red-600">404 - Page Not Found</h2>
+              <p className="text-lg text-gray-600 mt-2">The page you are looking for does not exist.</p>
+              <div className="mt-4">
+                <img src="https://via.placeholder.com/400x200?text=404+Error" alt="404 Error Image" className="mx-auto rounded-lg shadow-lg"/>
+              </div>
             </div>
-          </div>
-        } />
-      </Route>
-    </Routes>
+          } />
+        </Route>
+      </Routes>
+    </SubmissionProvider>
   );
 }
 

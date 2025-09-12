@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using backend.Data;
@@ -11,9 +12,11 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250911035034_AddSubjectAndSchoolTables_Normalized")]
+    partial class AddSubjectAndSchoolTables_Normalized
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -69,6 +72,10 @@ namespace backend.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("UniqueKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<DateTime>("UploadDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -85,16 +92,16 @@ namespace backend.Migrations
 
                     b.HasIndex("SubjectId");
 
+                    b.HasIndex("UniqueKey")
+                        .IsUnique();
+
                     b.ToTable("Questions");
                 });
 
             modelBuilder.Entity("backend.Models.School", b =>
                 {
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -112,10 +119,7 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Subject", b =>
                 {
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -134,13 +138,11 @@ namespace backend.Migrations
                 {
                     b.HasOne("backend.Models.School", "School")
                         .WithMany("Questions")
-                        .HasForeignKey("SchoolId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("SchoolId");
 
                     b.HasOne("backend.Models.Subject", "Subject")
                         .WithMany("Questions")
-                        .HasForeignKey("SubjectId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("SubjectId");
 
                     b.Navigation("School");
 

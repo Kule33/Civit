@@ -1,4 +1,3 @@
-// backend/Repositories/Interfaces/IQuestionRepository.cs
 using backend.Models;
 using System;
 using System.Collections.Generic;
@@ -10,9 +9,10 @@ namespace backend.Repositories.Interfaces
     {
         Task<Question> AddQuestionAsync(Question question);
         Task<Question?> GetQuestionByIdAsync(Guid id);
+        Task<Question?> GetQuestionByIdWithDetailsAsync(Guid id);
         Task<IEnumerable<Question>> GetAllQuestionsAsync();
+        Task<IEnumerable<Question>> GetAllQuestionsWithDetailsAsync();
         Task<bool> UpdateQuestionAsync(Question question);
         Task<bool> DeleteQuestionAsync(Guid id);
-        Task<Question?> GetQuestionByUniqueKeyAsync(string uniqueKey); // For uniqueness check
     }
 }

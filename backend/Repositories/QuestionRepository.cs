@@ -1,4 +1,3 @@
-// backend/Repositories/QuestionRepository.cs
 using backend.Data;
 using backend.Models;
 using backend.Repositories.Interfaces;
@@ -30,9 +29,25 @@ namespace backend.Repositories
             return await _context.Questions.FindAsync(id);
         }
 
+        public async Task<Question?> GetQuestionByIdWithDetailsAsync(Guid id)
+        {
+            return await _context.Questions
+                .Include(q => q.Subject)
+                .Include(q => q.School)
+                .FirstOrDefaultAsync(q => q.Id == id);
+        }
+
         public async Task<IEnumerable<Question>> GetAllQuestionsAsync()
         {
             return await _context.Questions.ToListAsync();
+        }
+
+        public async Task<IEnumerable<Question>> GetAllQuestionsWithDetailsAsync()
+        {
+            return await _context.Questions
+                .Include(q => q.Subject)
+                .Include(q => q.School)
+                .ToListAsync();
         }
 
         public async Task<bool> UpdateQuestionAsync(Question question)
@@ -47,9 +62,9 @@ namespace backend.Repositories
             {
                 if (!await QuestionExists(question.Id))
                 {
-                    return false; // Question not found
+                    return false;
                 }
-                throw; // Other concurrency issue
+                throw;
             }
         }
 
@@ -64,11 +79,6 @@ namespace backend.Repositories
             _context.Questions.Remove(question);
             await _context.SaveChangesAsync();
             return true;
-        }
-
-        public async Task<Question?> GetQuestionByUniqueKeyAsync(string uniqueKey)
-        {
-            return await _context.Questions.FirstOrDefaultAsync(q => q.UniqueKey == uniqueKey);
         }
 
         private async Task<bool> QuestionExists(Guid id)
