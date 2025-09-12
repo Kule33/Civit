@@ -30,6 +30,7 @@ function App() {
           <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
           <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
 
+
           {/* Default landing page */}
           <Route index element={
             <div className="text-center mt-10">
