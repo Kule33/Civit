@@ -66,6 +66,9 @@ const FileUploadZone = ({
           <p className="text-sm text-gray-600 mb-1">
             Drag & drop files here or click to browse
           </p>
+          <p className="text-xs text-gray-500">
+            Multiple files supported
+          </p>
         </div>
       )}
 

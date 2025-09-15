@@ -48,7 +48,14 @@ const UploadQueue = ({ files, onRemoveFile, onClearAll }) => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{file.file.name}</p>
                     <p className="text-xs text-gray-500">
-                      {(file.file.size / 1024 / 1024).toFixed(2)} MB
+                      {(() => {
+                        const bytes = file.file.size;
+                        if (bytes === 0) return '0 Bytes';
+                        const k = 1024;
+                        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                      })()}
                     </p>
                     {file.status === 'uploading' && (
                       <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
@@ -86,6 +93,16 @@ const UploadQueue = ({ files, onRemoveFile, onClearAll }) => {
               <span>
                 Completed: {files.filter(f => f.status === 'completed').length}
               </span>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              Total size: {(() => {
+                const totalBytes = files.reduce((sum, file) => sum + file.file.size, 0);
+                if (totalBytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(totalBytes) / Math.log(k));
+                return parseFloat((totalBytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+              })()}
             </div>
           </div>
         </>
