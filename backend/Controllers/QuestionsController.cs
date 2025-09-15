@@ -107,5 +107,19 @@ namespace backend.Controllers
             }
             return Ok(school);
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetQuestions([FromQuery] QuestionFilterDto filterDto)
+   {
+         try
+    {
+        var questions = await _questionService.GetQuestionsByFilterAsync(filterDto);
+        return Ok(questions);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, $"Internal server error: {ex.Message}");
+    }
+}
     }
 }

@@ -24,5 +24,8 @@ namespace backend.Services.Interfaces
         Task<IEnumerable<SchoolDto>> GetAllSchoolsAsync();
         Task<SchoolDto?> GetSchoolByIdAsync(int id);
         Task<SchoolDto> AddSchoolAsync(string schoolName);
+
+        // question filering methods
+        Task<IEnumerable<QuestionResponseDto>> GetQuestionsByFilterAsync(QuestionFilterDto filterDto);
     }
 }

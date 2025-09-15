@@ -231,5 +231,36 @@ namespace backend.Services
                 UploadDate = question.UploadDate
             };
         }
+
+        public async Task<IEnumerable<QuestionResponseDto>> GetQuestionsByFilterAsync(QuestionFilterDto filterDto)
+{
+    var questions = await _questionRepository.GetAllQuestionsWithDetailsAsync();
+    
+    // Apply filters
+    var filteredQuestions = questions.AsQueryable();
+    
+    if (!string.IsNullOrEmpty(filterDto.Country))
+        filteredQuestions = filteredQuestions.Where(q => q.Country.Contains(filterDto.Country));
+    
+    if (!string.IsNullOrEmpty(filterDto.ExamType))
+        filteredQuestions = filteredQuestions.Where(q => q.ExamType.Contains(filterDto.ExamType));
+    
+    if (!string.IsNullOrEmpty(filterDto.Subject))
+        filteredQuestions = filteredQuestions.Where(q => q.Subject != null && q.Subject.Name.Contains(filterDto.Subject));
+    
+    if (!string.IsNullOrEmpty(filterDto.PaperType))
+        filteredQuestions = filteredQuestions.Where(q => q.PaperType != null && q.PaperType.Contains(filterDto.PaperType));
+    
+    if (filterDto.Year.HasValue)
+        filteredQuestions = filteredQuestions.Where(q => q.Year == filterDto.Year.Value);
+    
+    if (!string.IsNullOrEmpty(filterDto.Term))
+        filteredQuestions = filteredQuestions.Where(q => q.Term != null && q.Term.Contains(filterDto.Term));
+    
+    if (!string.IsNullOrEmpty(filterDto.School))
+        filteredQuestions = filteredQuestions.Where(q => q.School != null && q.School.Name.Contains(filterDto.School));
+    
+    return filteredQuestions.ToList().Select(MapQuestionToResponseDto);
+}
     }
 }
