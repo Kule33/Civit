@@ -1,12 +1,13 @@
 // src/App.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { SubmissionProvider } from './context/SubmissionProvider'; // FIXED IMPORT PATH
+import { SubmissionProvider } from './context/SubmissionProvider'; 
 
 // Import your Layout component
 import MainLayout from './components/layouts/MainLayout.jsx';
 
 // Import your page components
+import Home from './routes/Home.jsx'; // NEW: Import your Home component
 import TeacherDashboard from './routes/Teacher/Dashboard.jsx';
 import PaperBuilder from './routes/Teacher/PaperBuilder.jsx';
 import TeacherPayment from './routes/Teacher/TeacherPayment.jsx';
@@ -20,6 +21,9 @@ function App() {
     <SubmissionProvider>
       <Routes>
         <Route path="/" element={<MainLayout />}>
+          {/* Default landing page */}
+          <Route index element={<Home />} /> {/* CHANGED: Use Home component here */}
+          
           {/* Teacher Routes */}
           <Route path="teacher/dashboard" element={<TeacherDashboard />} />
           <Route path="teacher/paper-builder" element={<PaperBuilder />} />
@@ -29,18 +33,6 @@ function App() {
           <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
           <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
           <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
-
-
-          {/* Default landing page */}
-          <Route index element={
-            <div className="text-center mt-10">
-              <h2 className="text-4xl font-semibold text-gray-800">Welcome to Paper Master!</h2>
-              <p className="text-lg text-gray-600 mt-2">Build your own paper.</p>
-              <div className="mt-4">
-                <img src="https://via.placeholder.com/600x300?text=Welcome+to+Paper+Master" alt="Welcome Image" className="mx-auto rounded-lg shadow-lg"/>
-              </div>
-            </div>
-          } />
           
           {/* 404 Not Found Page */}
           <Route path="*" element={

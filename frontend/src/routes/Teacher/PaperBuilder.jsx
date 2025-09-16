@@ -11,17 +11,10 @@ import { useMetadata } from '../../hooks/useMetadata.js'; // Import the hook
 import axios from 'axios';
 
 const PaperBuilder = () => {
-  const [filters, setFilters] = useState({
-    country: '',
-    examType: '',
-    stream: '',
-    subject: '',
-    paperType: '',
-    paperCategory: '',
-    year: '',
-    term: '',
-    schoolName: ''
-  });
+  // `filters` state is no longer strictly needed as `useMetadata` manages it,
+  // but if you want to explicitly see the filter state, you can keep it in sync.
+  // For now, let's rely directly on `metadata` from the hook.
+
   const [questions, setQuestions] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,26 +29,11 @@ const PaperBuilder = () => {
     metadata,
     availableOptions,
     updateMetadata,
-    loading: metadataLoading
-  } = useMetadata(filters); // Initialize with current filters
-
-  // Sync filters with metadata when metadata changes
-  useEffect(() => {
-    setFilters({
-      country: metadata.country || '',
-      examType: metadata.examType || '',
-      stream: metadata.stream || '',
-      subject: metadata.subject || '',
-      paperType: metadata.paperType || '',
-      paperCategory: metadata.paperCategory || '',
-      year: metadata.year || '',
-      term: metadata.term || '',
-      schoolName: metadata.schoolName || ''
-    });
-  }, [metadata]);
+    loading: metadataLoading,
+    resetMetadata // Assuming useMetadata provides a reset function
+  } = useMetadata(); // Initialize without filters, the hook should manage internal state
 
   const handleFilterChange = (field, value) => {
-    // Use the metadata hook's update function to get the same conditional logic
     updateMetadata(field, value);
   };
 
@@ -63,31 +41,24 @@ const PaperBuilder = () => {
     setLoading(true);
     setError('');
     try {
-      // Build query parameters from current metadata
+      // Build query parameters from current metadata (which is `filters` internally in the hook)
       const params = new URLSearchParams();
       Object.entries(metadata).forEach(([key, value]) => {
-        if (value) params.append(key, value);
+        // Only append if the value is not empty, null, or undefined
+        if (value !== '' && value !== null && value !== undefined) {
+            params.append(key, value);
+        }
       });
 
-      const response = await axios.get(`/api/questions?${params}`);
+      // Log the URL being hit for debugging
+      console.log('Searching with URL:', `/api/questions?${params.toString()}`);
+
+      const response = await axios.get(`/api/questions?${params.toString()}`);
       setQuestions(Array.isArray(response.data) ? response.data : []);
       setSearchPerformed(true);
-      
-      showOverlay({
-        status: 'success',
-        message: `Found ${response.data.length} questions matching your criteria`,
-        autoClose: true,
-        autoCloseDelay: 3000
-      });
     } catch (error) {
-      const errorMessage = error.response?.data || 'Failed to fetch questions. Please try again.';
+      const errorMessage = error.response?.data?.title || error.message || 'Failed to fetch questions. Please try again.';
       setError(errorMessage);
-      showOverlay({
-        status: 'error',
-        message: errorMessage,
-        autoClose: true,
-        autoCloseDelay: 5000
-      });
       setQuestions([]);
     } finally {
       setLoading(false);
@@ -113,10 +84,7 @@ const PaperBuilder = () => {
   };
 
   const handleClearFilters = () => {
-    // Reset all metadata fields
-    Object.keys(metadata).forEach(key => {
-      updateMetadata(key, '');
-    });
+    resetMetadata(); // Use the reset function from the hook
     setQuestions([]);
     setSelectedQuestions([]);
     setSearchPerformed(false);
@@ -135,9 +103,9 @@ const PaperBuilder = () => {
     }
 
     const selectedQuestionsData = questions.filter(q => selectedQuestions.includes(q.id));
-    
+
     // Create paper content
-    const paperContent = selectedQuestionsData.map((q, index) => 
+    const paperContent = selectedQuestionsData.map((q, index) =>
       `Question ${index + 1}:\n` +
       `Subject: ${q.subject?.name || 'N/A'}\n` +
       `Year: ${q.year || 'N/A'}\n` +
@@ -178,8 +146,8 @@ const PaperBuilder = () => {
         subtitle="Search for questions and build custom papers"
         actions={
           <div className="flex space-x-2">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               icon={Filter}
               onClick={() => setIsFiltersMinimized(!isFiltersMinimized)}
             >
@@ -288,8 +256,8 @@ const PaperBuilder = () => {
               type="number"
               min="2000"
               max="2030"
-              value={metadata.year}
-              onChange={(e) => handleFilterChange('year', e.target.value)}
+              value={metadata.year || ''} // Ensure it's a string for InputField
+              onChange={(e) => handleFilterChange('year', e.target.value ? parseInt(e.target.value) : null)}
               placeholder="All Years"
             />
           )}
@@ -308,7 +276,7 @@ const PaperBuilder = () => {
                   { value: 'Term3', label: 'Term 3' }
                 ]}
               />
-              
+
               <SearchableSelect
                 value={metadata.schoolName}
                 onChange={(e) => handleFilterChange('schoolName', e.target.value)}
@@ -343,7 +311,7 @@ const PaperBuilder = () => {
           <Card>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold">Search Results</h2>
-              
+
               {searchPerformed && questions.length > 0 && (
                 <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-600">
@@ -398,9 +366,13 @@ const PaperBuilder = () => {
                           : 'border-gray-200 bg-white hover:shadow-md'
                       }`}
                     >
-                      {isImage && (
+                      {isImage ? (
                         <div className="h-40 bg-gray-50 overflow-hidden">
                           <img src={question.fileUrl} alt={question.subject?.name || 'Question'} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-40 bg-gray-50 flex items-center justify-center text-gray-400 text-sm">
+                          No Image Preview
                         </div>
                       )}
                       <div className="p-3">

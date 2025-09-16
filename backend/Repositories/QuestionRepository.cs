@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq; // Important: Add this
+using backend.DTOs; // Important: Add this
 
 namespace backend.Repositories
 {
@@ -32,22 +34,73 @@ namespace backend.Repositories
         public async Task<Question?> GetQuestionByIdWithDetailsAsync(Guid id)
         {
             return await _context.Questions
-                .Include(q => q.Subject)
-                .Include(q => q.School)
+                .Include(q => q.Subject) // Eagerly load Subject details
+                .Include(q => q.School)   // Eagerly load School details
                 .FirstOrDefaultAsync(q => q.Id == id);
         }
 
-        public async Task<IEnumerable<Question>> GetAllQuestionsAsync()
-        {
-            return await _context.Questions.ToListAsync();
-        }
+        // Removed GetAllQuestionsAsync if it's not being used elsewhere to avoid confusion.
+        // If it's used, ensure it also includes Subject and School for consistent data.
+        // public async Task<IEnumerable<Question>> GetAllQuestionsAsync()
+        // {
+        //     return await _context.Questions.ToListAsync();
+        // }
 
         public async Task<IEnumerable<Question>> GetAllQuestionsWithDetailsAsync()
         {
             return await _context.Questions
-                .Include(q => q.Subject)
-                .Include(q => q.School)
+                .Include(q => q.Subject) // Eagerly load Subject details
+                .Include(q => q.School)   // Eagerly load School details
                 .ToListAsync();
+        }
+
+        // New method to get filtered questions
+        public async Task<IEnumerable<Question>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto)
+        {
+            IQueryable<Question> query = _context.Questions
+                .Include(q => q.Subject) // **IMPORTANT: Include Subject**
+                .Include(q => q.School);   // **IMPORTANT: Include School**
+
+            if (!string.IsNullOrWhiteSpace(searchDto.Country))
+            {
+                query = query.Where(q => q.Country == searchDto.Country);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.ExamType))
+            {
+                query = query.Where(q => q.ExamType == searchDto.ExamType);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.Stream))
+            {
+                query = query.Where(q => q.Stream == searchDto.Stream);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.Subject))
+            {
+                // Ensure Subject is loaded before trying to access its Name
+                query = query.Where(q => q.Subject != null && q.Subject.Name == searchDto.Subject);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.PaperType))
+            {
+                query = query.Where(q => q.PaperType == searchDto.PaperType);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.PaperCategory))
+            {
+                query = query.Where(q => q.PaperCategory == searchDto.PaperCategory);
+            }
+            if (searchDto.Year.HasValue)
+            {
+                query = query.Where(q => q.Year == searchDto.Year.Value);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.Term))
+            {
+                query = query.Where(q => q.Term == searchDto.Term);
+            }
+            if (!string.IsNullOrWhiteSpace(searchDto.SchoolName))
+            {
+                // Ensure School is loaded before trying to access its Name
+                query = query.Where(q => q.School != null && q.School.Name == searchDto.SchoolName);
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<bool> UpdateQuestionAsync(Question question)
@@ -85,7 +138,5 @@ namespace backend.Repositories
         {
             return await _context.Questions.AnyAsync(e => e.Id == id);
         }
-
-        
     }
 }
