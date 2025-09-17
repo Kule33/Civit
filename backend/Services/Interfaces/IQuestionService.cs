@@ -1,4 +1,3 @@
-// backend/Services/Interfaces/IQuestionService.cs
 using backend.DTOs;
 using backend.Models;
 using System;
@@ -12,7 +11,8 @@ namespace backend.Services.Interfaces
         // Question management methods
         Task<QuestionResponseDto?> UploadQuestionAsync(QuestionUploadDto uploadDto);
         Task<QuestionResponseDto?> GetQuestionByIdAsync(Guid id);
-        Task<IEnumerable<QuestionResponseDto>> GetAllQuestionsAsync();
+        // Modify this method to accept search criteria
+        Task<IEnumerable<QuestionResponseDto>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto);
         Task<bool> DeleteQuestionAsync(Guid id);
 
         // Subject management methods

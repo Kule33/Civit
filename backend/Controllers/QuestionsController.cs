@@ -3,6 +3,7 @@ using backend.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
+using System.Linq; // Needed for Where if you re-add GetAllQuestions later
 
 namespace backend.Controllers
 {
@@ -54,11 +55,21 @@ namespace backend.Controllers
             return Ok(question);
         }
 
+        // MODIFIED: This GET endpoint now accepts query parameters
         [HttpGet]
-        public async Task<IActionResult> GetAllQuestions()
+        public async Task<IActionResult> GetFilteredQuestions([FromQuery] QuestionSearchDto searchDto)
         {
-            var questions = await _questionService.GetAllQuestionsAsync();
-            return Ok(questions);
+            try
+            {
+                var questions = await _questionService.GetFilteredQuestionsAsync(searchDto);
+                return Ok(questions);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception details
+                Console.Error.WriteLine($"Error fetching filtered questions: {ex.Message}");
+                return StatusCode(500, "An error occurred while fetching questions. Please try again later.");
+            }
         }
 
         [HttpDelete("{id}")]

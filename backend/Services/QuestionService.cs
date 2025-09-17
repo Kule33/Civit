@@ -97,7 +97,7 @@ namespace backend.Services
         public async Task<QuestionResponseDto?> GetQuestionByIdAsync(Guid id)
         {
             var question = await _questionRepository.GetQuestionByIdWithDetailsAsync(id);
-            
+
             if (question == null)
             {
                 return null;
@@ -106,9 +106,10 @@ namespace backend.Services
             return MapQuestionToResponseDto(question);
         }
 
-        public async Task<IEnumerable<QuestionResponseDto>> GetAllQuestionsAsync()
+        // Renamed and updated to accept search criteria
+        public async Task<IEnumerable<QuestionResponseDto>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto)
         {
-            var questions = await _questionRepository.GetAllQuestionsWithDetailsAsync();
+            var questions = await _questionRepository.GetFilteredQuestionsAsync(searchDto); // Pass searchDto to repository
             var questionDtos = new List<QuestionResponseDto>();
 
             foreach (var question in questions)
@@ -145,7 +146,7 @@ namespace backend.Services
         public async Task<SubjectDto?> GetSubjectByIdAsync(int id)
         {
             var subject = await _subjectRepository.GetSubjectByIdAsync(id);
-            
+
             if (subject == null)
             {
                 return null;
@@ -184,7 +185,7 @@ namespace backend.Services
         public async Task<SchoolDto?> GetSchoolByIdAsync(int id)
         {
             var school = await _schoolRepository.GetSchoolByIdAsync(id);
-            
+
             if (school == null)
             {
                 return null;
@@ -211,19 +212,19 @@ namespace backend.Services
                 Country = question.Country,
                 ExamType = question.ExamType,
                 Stream = question.Stream,
-                Subject = question.Subject != null ? new SubjectDto 
-                { 
-                    Id = question.Subject.Id, 
-                    Name = question.Subject.Name 
+                Subject = question.Subject != null ? new SubjectDto
+                {
+                    Id = question.Subject.Id,
+                    Name = question.Subject.Name
                 } : null,
                 PaperType = question.PaperType,
                 PaperCategory = question.PaperCategory,
                 Year = question.Year,
                 Term = question.Term,
-                School = question.School != null ? new SchoolDto 
-                { 
-                    Id = question.School.Id, 
-                    Name = question.School.Name 
+                School = question.School != null ? new SchoolDto
+                {
+                    Id = question.School.Id,
+                    Name = question.School.Name
                 } : null,
                 Uploader = question.Uploader,
                 FileUrl = question.FileUrl,

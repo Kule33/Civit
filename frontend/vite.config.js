@@ -9,5 +9,16 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
-  }
+  },
+  server: {
+    port: 5173, // Your frontend dev server port
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5201', // **Confirm your backend's actual URL/port**
+        changeOrigin: true,
+        secure: false, // Set to true if your backend uses HTTPS
+        // No rewrite needed if your backend routes are already like "api/controller"
+      },
+    },
+  },
 })

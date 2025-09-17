@@ -79,8 +79,8 @@ const QuestionUpload = () => {
 
   const handleFilesAdded = (files, type) => {
     if (files.length > 0) {
-      clearAllFiles();
-      addFiles([files[0]], type);
+      // For multiple file upload, add all files instead of clearing and taking only the first one
+      addFiles(files, type);
     }
   };
 
@@ -89,10 +89,10 @@ const QuestionUpload = () => {
 
     const filesToUpload = uploadedFiles.filter(f => f.status === 'pending');
 
-    if (filesToUpload.length !== 1) {
+    if (filesToUpload.length === 0) {
       showOverlay({
         status: 'error',
-        message: 'Please select exactly one file to upload.',
+        message: 'Please select at least one file to upload.',
         autoClose: true,
         autoCloseDelay: 3000
       });
@@ -110,32 +110,21 @@ const QuestionUpload = () => {
     }
 
     try {
+      // Calculate total size for progress display
+      const totalSize = filesToUpload.reduce((sum, file) => sum + file.file.size, 0);
+      const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      };
+
       showOverlay({
         status: 'loading',
-        message: 'Uploading file directly to Cloudinary...',
+        message: `Preparing to upload ${filesToUpload.length} file(s) (${formatFileSize(totalSize)}) to Cloudinary...`,
         autoClose: false
       });
-
-      updateFileStatus(filesToUpload[0].id, { status: 'uploading', progress: 0 });
-
-      console.log('🔄 Starting Cloudinary upload with metadata:', metadata);
-      
-      const uploadResult = await uploadWithProgress(
-        filesToUpload[0].file,
-        {
-          country: metadata.country,
-          examType: metadata.examType,
-          stream: metadata.stream,
-          subject: metadata.subject,
-          paperType: metadata.paperType,
-          paperCategory: metadata.paperCategory
-        },
-        (progress) => {
-          updateFileStatus(filesToUpload[0].id, { progress });
-        }
-      );
-
-      console.log('✅ Cloudinary upload result:', uploadResult);
 
       // Clean metadata - Convert empty strings to null and transform subject
       const cleanedMetadata = {
@@ -151,51 +140,140 @@ const QuestionUpload = () => {
         uploader: metadata.uploader || null
       };
 
-      console.log('🧹 Cleaned metadata:', cleanedMetadata);
-      console.log('📤 Upload result for backend:', uploadResult);
+      console.log('🔄 Starting batch upload with metadata:', cleanedMetadata);
 
-      // Check if Cloudinary returned the required fields
-      if (!uploadResult.secureUrl && !uploadResult.fileUrl) {
-        throw new Error('Cloudinary upload failed - no URL returned');
+      // Upload all files sequentially to avoid overwhelming the server
+      const uploadResults = [];
+      let successCount = 0;
+      let errorCount = 0;
+      let uploadedSize = 0;
+
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        
+        try {
+          // Update progress for current file
+          updateFileStatus(file.id, { status: 'uploading', progress: 0 });
+          
+          showOverlay({
+            status: 'loading',
+            message: `Uploading file ${i + 1} of ${filesToUpload.length}: ${file.name} (${formatFileSize(file.file.size)})`,
+            autoClose: false
+          });
+
+          console.log(`🔄 Uploading file ${i + 1}/${filesToUpload.length}:`, file.name, `(${formatFileSize(file.file.size)})`);
+          
+          const uploadResult = await uploadWithProgress(
+            file.file,
+            {
+              country: metadata.country,
+              examType: metadata.examType,
+              stream: metadata.stream,
+              subject: metadata.subject,
+              paperType: metadata.paperType,
+              paperCategory: metadata.paperCategory
+            },
+            (progress) => {
+              updateFileStatus(file.id, { progress });
+              
+              // Show detailed progress in overlay
+              const currentFileProgress = Math.round(progress);
+              const overallProgress = Math.round(((i * 100) + progress) / filesToUpload.length);
+              
+              showOverlay({
+                status: 'loading',
+                message: `Uploading file ${i + 1} of ${filesToUpload.length}: ${file.name} (${formatFileSize(file.file.size)}) - ${currentFileProgress}%`,
+                autoClose: false
+              });
+            }
+          );
+
+          console.log(`✅ Upload result for ${file.name}:`, uploadResult);
+
+          // Check if Cloudinary returned the required fields
+          if (!uploadResult.secureUrl && !uploadResult.fileUrl) {
+            throw new Error('Cloudinary upload failed - no URL returned');
+          }
+          if (!uploadResult.publicId && !uploadResult.filePublicId) {
+            throw new Error('Cloudinary upload failed - no publicId returned');
+          }
+
+          // Prepare data for backend
+          const backendData = {
+            ...cleanedMetadata,
+            fileUrl: uploadResult.secureUrl || uploadResult.fileUrl,
+            filePublicId: uploadResult.publicId || uploadResult.filePublicId,
+            fileName: uploadResult.fileName,
+            fileSize: uploadResult.bytes,
+            fileFormat: uploadResult.format
+          };
+
+          console.log(`🚀 Saving metadata for ${file.name}:`, backendData);
+
+          await saveQuestionMetadata(backendData);
+          
+          updateFileStatus(file.id, { status: 'completed' });
+          uploadResults.push({ file: file.name, success: true });
+          successCount++;
+          uploadedSize += file.file.size;
+
+        } catch (error) {
+          console.error(`❌ Upload failed for ${file.name}:`, error);
+          updateFileStatus(file.id, { status: 'error' });
+          uploadResults.push({ 
+            file: file.name, 
+            success: false, 
+            error: error.response?.data || error.message 
+          });
+          errorCount++;
+        }
       }
-      if (!uploadResult.publicId && !uploadResult.filePublicId) {
-        throw new Error('Cloudinary upload failed - no publicId returned');
-      }
-
-      // Prepare data for backend
-      const backendData = {
-        ...cleanedMetadata,
-        fileUrl: uploadResult.secureUrl || uploadResult.fileUrl,
-        filePublicId: uploadResult.publicId || uploadResult.filePublicId,
-        fileName: uploadResult.fileName,
-        fileSize: uploadResult.bytes,
-        fileFormat: uploadResult.format
-      };
-
-      console.log('🚀 Final data for backend:', backendData);
-
-      await saveQuestionMetadata(backendData);
 
       // Refresh schools so newly created school appears in dropdown
       await refreshSchools();
 
-      showOverlay({
-        status: 'success',
-        message: 'File uploaded to Cloudinary and metadata saved!',
-        autoClose: true,
-        autoCloseDelay: 2000
-      });
-
-      updateFileStatus(filesToUpload[0].id, { status: 'completed' });
-      
-      setTimeout(() => {
-        clearAllFiles();
-        resetMetadata();
-      }, 1500);
+      // Show final result with size information
+      if (successCount === filesToUpload.length) {
+        showOverlay({
+          status: 'success',
+          message: `All ${successCount} file(s) uploaded successfully! Total size: ${formatFileSize(uploadedSize)}`,
+          autoClose: true,
+          autoCloseDelay: 3000
+        });
+        
+        // Reset form immediately on complete success
+        setTimeout(() => {
+          clearAllFiles();
+          resetMetadata();
+        }, 1000);
+        
+      } else if (successCount > 0) {
+        showOverlay({
+          status: 'warning',
+          message: `${successCount} file(s) uploaded successfully (${formatFileSize(uploadedSize)}), ${errorCount} failed. Check upload queue for details.`,
+          autoClose: true,
+          autoCloseDelay: 5000
+        });
+        
+        // Only clear completed files, keep failed ones for retry
+        setTimeout(() => {
+          const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
+          if (completedFiles.length > 0) {
+            completedFiles.forEach(file => removeFile(file.id));
+          }
+        }, 2000);
+        
+      } else {
+        showOverlay({
+          status: 'error',
+          message: `All ${errorCount} file(s) failed to upload. Check upload queue for details.`,
+          autoClose: true,
+          autoCloseDelay: 5000
+        });
+      }
 
     } catch (error) {
-      console.error("❌ Submission error:", error);
-      updateFileStatus(filesToUpload[0].id, { status: 'error' });
+      console.error("❌ Batch upload error:", error);
       
       showOverlay({
         status: 'error',
@@ -274,7 +352,7 @@ const QuestionUpload = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload File (Single File Only)
+                    Upload Files (Multiple Files Supported)
                   </label>
                   <FileUploadZone
                     uploadType={uploadType}
