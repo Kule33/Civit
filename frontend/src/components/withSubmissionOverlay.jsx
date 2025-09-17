@@ -3,7 +3,7 @@ import React from 'react';
 import SubmissionOverlay from './SubmissionOverlay';
 import { useSubmission } from '../context/SubmissionContext';
 
-export const withSubmissionOverlay = () => {
+export const withSubmissionOverlay = (WrappedComponent) => {
   return (props) => {
     const { overlayState, hideOverlay } = useSubmission();
     
