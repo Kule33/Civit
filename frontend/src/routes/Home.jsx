@@ -1,99 +1,346 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import cvitLogo from '../assets/cvit.jpg'; // Replace with actual path to CVIT logo
+import { FileText, Database, Printer, Users, Zap, ArrowRight, Play, CheckCircle, BookOpen, Award, Sparkles, Globe } from 'lucide-react';
+// import cvitLogo from '../assets/cvit.jpg'; // Uncomment when you have the logo
+
 const Home = () => {
   const navigate = useNavigate();
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
+  const [isVisible, setIsVisible] = useState({});
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setMousePosition({
+        x: (e.clientX / window.innerWidth) * 100,
+        y: (e.clientY / window.innerHeight) * 100
+      });
+    };
+
+    // Throttled mouse tracking for better performance
+    let ticking = false;
+    const throttledMouseMove = (e) => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleMouseMove(e);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Intersection Observer for animations
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsVisible(prev => ({
+            ...prev,
+            [entry.target.id]: entry.isIntersecting
+          }));
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    window.addEventListener('mousemove', throttledMouseMove);
+    document.querySelectorAll('[id^="section-"]').forEach(el => observer.observe(el));
+
+    return () => {
+      window.removeEventListener('mousemove', throttledMouseMove);
+      observer.disconnect();
+    };
+  }, []);
+
+  const features = [
+    {
+      icon: FileText,
+      title: 'Intuitive Paper Builder',
+      description: 'Create custom question papers with a drag-and-drop interface, saving hours of manual work.',
+      color: 'from-blue-500 to-cyan-600'
+    },
+    {
+      icon: Database,
+      title: 'Extensive Question Bank',
+      description: 'Access a vast, categorized library of questions and easily integrate them into your papers.',
+      color: 'from-emerald-500 to-teal-600'
+    },
+    {
+      icon: Printer,
+      title: 'Professional Typesetting',
+      description: 'Generate perfectly formatted, print-ready papers with advanced typesetting features.',
+      color: 'from-purple-500 to-pink-600'
+    },
+    {
+      icon: Users,
+      title: 'Collaborative Platform',
+      description: 'Work together with your team to create and review papers in real-time.',
+      color: 'from-orange-500 to-red-600'
+    },
+    {
+      icon: Zap,
+      title: 'AI-Powered Suggestions',
+      description: 'Get intelligent recommendations for questions based on curriculum and difficulty.',
+      color: 'from-violet-500 to-purple-600'
+    },
+    {
+      icon: Award,
+      title: 'Quality Assurance',
+      description: 'Built-in plagiarism detection and quality checks ensure academic integrity.',
+      color: 'from-amber-500 to-yellow-600'
+    }
+  ];
+
+  const stats = [
+    { icon: Users, number: '10,000+', label: 'Active Educators' },
+    { icon: FileText, number: '500K+', label: 'Papers Created' },
+    { icon: Globe, number: '4.9/5', label: 'User Rating' },
+    { icon: CheckCircle, number: '50+', label: 'Countries' }
+  ];
 
   return (
-    <div className="flex-1 p-6 bg-gray-50 min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-600 to-purple-700 text-white rounded-lg shadow-xl p-10 md:p-16 mb-10 overflow-hidden">
-        {/* Abstract Background Shapes */}
-        <div className="absolute top-0 left-0 w-full h-full">
-          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-            <path fill="currentColor" fillOpacity="0.1" d="M0,160L48,160C96,160,192,160,288,176C384,192,480,224,576,224C672,224,768,192,864,170.7C960,149,1056,139,1152,149.3C1248,160,1344,192,1392,208L1440,224L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"></path>
-          </svg>
-        </div>
-        
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <img 
-            src={cvitLogo}
-            alt="CVIT Logo" 
-            className="h-10 mx-auto mb-4" 
+    <div className="relative min-h-screen">
+      {/* Simplified background with mouse tracking */}
+      <div 
+        className="fixed inset-0 transition-all duration-700 pointer-events-none opacity-20"
+        style={{
+          background: `radial-gradient(circle at ${mousePosition.x}% ${mousePosition.y}%, 
+            rgba(59, 130, 246, 0.15) 0%, 
+            transparent 50%)`
+        }}
+      />
+
+      {/* Reduced floating shapes for performance */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute opacity-5 ${
+              i % 3 === 0 ? 'bg-blue-400' : 
+              i % 3 === 1 ? 'bg-purple-400' : 'bg-emerald-400'
+            } rounded-full blur-2xl`}
+            style={{
+              width: `${120 + Math.random() * 100}px`,
+              height: `${120 + Math.random() * 100}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animation: `float ${20 + Math.random() * 10}s linear infinite`,
+              animationDelay: `${Math.random() * 5}s`
+            }}
           />
-          <h2 className="text-5xl font-extrabold mb-4 leading-tight">
-            Empower Your Education with Paper Master
-          </h2>
-          <p className="text-xl font-light mb-8 opacity-90">
+        ))}
+      </div>
+
+      {/* Hero Section */}
+      <section 
+        id="section-hero"
+        className={`relative min-h-screen flex items-center justify-center px-6 transition-all duration-700 ${isVisible['section-hero'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
+      >
+        {/* Simplified hero background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-800">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/70 via-purple-600/60 to-pink-600/70"></div>
+        </div>
+
+        {/* Reduced particles for performance */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-white/30 rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${2 + Math.random() * 2}s`
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Hero content */}
+        <div className="relative z-10 max-w-6xl mx-auto text-center text-white">
+          {/* Logo section */}
+          <div className="mb-8 flex justify-center">
+            <div className="relative group">
+              <div className="h-20 w-20 bg-white/10 backdrop-blur-xl rounded-3xl flex items-center justify-center border border-white/20 shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                <Sparkles className="text-white w-10 h-10" />
+              </div>
+              <div className="absolute -inset-2 bg-gradient-to-br from-cyan-400/30 to-purple-400/30 rounded-3xl opacity-50 blur-xl animate-pulse"></div>
+            </div>
+          </div>
+
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-white via-cyan-100 to-purple-100 bg-clip-text text-transparent">
+              Empower Your Education
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-cyan-200 via-blue-200 to-purple-200 bg-clip-text text-transparent">
+              with Paper Master
+            </span>
+          </h1>
+
+          <p className="text-xl font-light mb-12 opacity-90 max-w-3xl mx-auto leading-relaxed">
             Crafting knowledge, effortlessly. Design, manage, and publish academic papers with unprecedented ease.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-16">
             <button
               onClick={() => navigate('/teacher/paper-builder')}
-              className="bg-white text-purple-700 hover:bg-gray-100 px-8 py-3 rounded-full text-lg font-semibold shadow-lg transform hover:scale-105 transition-all duration-300"
+              className="group relative px-8 py-4 bg-white text-purple-700 rounded-2xl text-lg font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105"
             >
-              Start Building a Paper →
+              <div className="flex items-center space-x-3">
+                <Play size={20} />
+                <span>Start Building a Paper</span>
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
+              </div>
             </button>
+
             <button
-              onClick={() => navigate('/admin/dashboard')} // Assuming an admin dashboard route
-              className="border border-white text-white hover:bg-white hover:text-purple-700 px-8 py-3 rounded-full text-lg font-semibold shadow-lg transform hover:scale-105 transition-all duration-300"
+              onClick={() => navigate('/admin/questions/upload')}
+              className="group relative px-8 py-4 border-2 border-white text-white rounded-2xl text-lg font-bold hover:bg-white hover:text-purple-700 transition-all duration-300 hover:scale-105 backdrop-blur-xl"
             >
-              Admin Login →
+              <div className="flex items-center space-x-3">
+                <Database size={20} />
+                <span>Admin Portal</span>
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
+              </div>
             </button>
+          </div>
+
+          {/* Stats Section */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center group">
+                <div className="flex justify-center mb-3">
+                  <div className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 group-hover:scale-110 transition-transform duration-300">
+                    <stat.icon size={24} className="text-cyan-300" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-cyan-100">{stat.number}</div>
+                <div className="text-sm text-white/80">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-12 bg-white rounded-lg shadow-xl px-6 md:px-12">
-        <h3 className="text-4xl font-bold text-center text-gray-800 mb-12">Key Features</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {/* Feature Card 1 */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-8 rounded-lg shadow-md text-center transform hover:scale-105 transition-all duration-300 hover:shadow-xl">
-            <div className="bg-blue-500/10 p-4 rounded-full inline-flex items-center justify-center mb-4">
-              <img src="https://via.placeholder.com/64?text=📝" alt="Paper Builder Icon" className="h-12 w-12"/>
-            </div>
-            <h4 className="text-2xl font-semibold text-gray-800 mb-3">Intuitive Paper Builder</h4>
-            <p className="text-gray-600">
-              Create custom question papers with a drag-and-drop interface, saving hours of manual work.
+      <section 
+        id="section-features"
+        className={`py-20 px-6 bg-gradient-to-br from-gray-50 to-blue-50/30 transition-all duration-700 delay-200 ${isVisible['section-features'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
+      >
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-800 mb-6">
+              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Powerful Features
+              </span>
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Everything you need to create, manage, and deliver exceptional educational assessments
             </p>
           </div>
-          {/* Feature Card 2 */}
-          <div className="bg-gradient-to-br from-green-50 to-teal-100 p-8 rounded-lg shadow-md text-center transform hover:scale-105 transition-all duration-300 hover:shadow-xl">
-            <div className="bg-green-500/10 p-4 rounded-full inline-flex items-center justify-center mb-4">
-              <img src="https://via.placeholder.com/64?text=📚" alt="Question Bank Icon" className="h-12 w-12"/>
-            </div>
-            <h4 className="text-2xl font-semibold text-gray-800 mb-3">Extensive Question Bank</h4>
-            <p className="text-gray-600">
-              Access a vast, categorized library of questions and easily integrate them into your papers.
-            </p>
-          </div>
-          {/* Feature Card 3 */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-100 p-8 rounded-lg shadow-md text-center transform hover:scale-105 transition-all duration-300 hover:shadow-xl">
-            <div className="bg-purple-500/10 p-4 rounded-full inline-flex items-center justify-center mb-4">
-              <img src="https://via.placeholder.com/64?text=🖨️" alt="Typeset & Publish Icon" className="h-12 w-12"/>
-            </div>
-            <h4 className="text-2xl font-semibold text-gray-800 mb-3">Professional Typesetting</h4>
-            <p className="text-gray-600">
-              Generate perfectly formatted, print-ready papers with advanced typesetting features.
-            </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <div 
+                key={index}
+                className="group relative p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500 hover:scale-105 bg-white/80 backdrop-blur-sm border border-white/60"
+              >
+                {/* Icon */}
+                <div className={`relative inline-flex p-3 rounded-xl bg-gradient-to-br ${feature.color} text-white mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                  <feature.icon size={28} />
+                </div>
+
+                {/* Content */}
+                <h3 className="text-xl font-bold text-gray-800 mb-3">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {feature.description}
+                </p>
+
+                {/* Hover effect indicator */}
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <ArrowRight size={18} className="text-purple-600" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Call to Action Section (Optional) */}
-      <section className="py-12 bg-white rounded-lg shadow-xl px-6 md:px-12 mt-10 text-center">
-        <h3 className="text-3xl font-bold text-gray-800 mb-4">Ready to simplify your paper creation?</h3>
-        <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-          Join hundreds of educators who are transforming their workflow with Paper Master.
-        </p>
-        <button
-          onClick={() => navigate('/teacher/paper-builder')}
-          className="bg-blue-600 text-white hover:bg-blue-700 px-10 py-4 rounded-full text-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-300"
-        >
-          Get Started Today!
-        </button>
+      {/* Final CTA Section */}
+      <section 
+        id="section-cta"
+        className={`py-20 px-6 transition-all duration-700 delay-400 ${isVisible['section-cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
+      >
+        <div className="max-w-4xl mx-auto">
+          <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl p-12 shadow-2xl text-center text-white overflow-hidden">
+            {/* Background effects */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+
+            <div className="relative z-10">
+              <h2 className="text-3xl font-bold mb-6">
+                Ready to Transform Your Paper Creation?
+              </h2>
+              <p className="text-lg mb-8 opacity-90">
+                Join thousands of educators revolutionizing their assessment workflow with Paper Master.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-8">
+                <button
+                  onClick={() => navigate('/teacher/paper-builder')}
+                  className="group px-8 py-4 bg-white text-purple-700 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                >
+                  <div className="flex items-center justify-center space-x-3">
+                    <Zap size={20} />
+                    <span>Get Started Today!</span>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => navigate('/teacher/dashboard')}
+                  className="group px-8 py-4 border-2 border-white text-white rounded-2xl text-lg font-bold hover:bg-white hover:text-purple-700 transition-all duration-300 hover:scale-105"
+                >
+                  <div className="flex items-center justify-center space-x-3">
+                    <BookOpen size={20} />
+                    <span>View Dashboard</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-6 text-white/90 text-sm">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle size={16} />
+                  <span>Free to Start</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle size={16} />
+                  <span>No Credit Card Required</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle size={16} />
+                  <span>24/7 Support</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
+
+      {/* Simplified CSS Animations for better performance */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { 
+            transform: translateY(0px) scale(1); 
+            opacity: 0.05; 
+          }
+          50% { 
+            transform: translateY(-20px) scale(1.05); 
+            opacity: 0.1; 
+          }
+        }
+      `}</style>
     </div>
   );
 };
