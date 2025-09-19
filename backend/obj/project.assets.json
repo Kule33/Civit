@@ -6220,19 +6220,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\DELL\\.nuget\\packages\\": {}
+    "C:\\Users\\DELL™\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Civit\\Civit\\backend\\backend.csproj",
+      "projectUniqueName": "D:\\JV\\Civit\\backend\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "D:\\Civit\\Civit\\backend\\backend.csproj",
-      "packagesPath": "C:\\Users\\DELL\\.nuget\\packages\\",
-      "outputPath": "D:\\Civit\\Civit\\backend\\obj\\",
+      "projectPath": "D:\\JV\\Civit\\backend\\backend.csproj",
+      "packagesPath": "C:\\Users\\DELL™\\.nuget\\packages\\",
+      "outputPath": "D:\\JV\\Civit\\backend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\DELL\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\DELL™\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
@@ -6313,7 +6313,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.414/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.413/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
