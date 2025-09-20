@@ -1,222 +1,175 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FileText, Database, Printer, Users, Zap, ArrowRight, Play, CheckCircle, BookOpen, Award, Sparkles, Globe } from 'lucide-react';
-// import cvitLogo from '../assets/cvit.jpg'; // Uncomment when you have the logo
+import { FileText, Database, Users, BookOpen, Award, CheckCircle, GraduationCap, PenTool, Calculator, Clock, Target, Search, Upload, MessageCircle, CreditCard, Filter, Camera, Globe, Zap, Edit3 } from 'lucide-react';
 
 const Home = () => {
-  const navigate = useNavigate();
-  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
-  const [isVisible, setIsVisible] = useState({});
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePosition({
-        x: (e.clientX / window.innerWidth) * 100,
-        y: (e.clientY / window.innerHeight) * 100
-      });
-    };
-
-    // Throttled mouse tracking for better performance
-    let ticking = false;
-    const throttledMouseMove = (e) => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          handleMouseMove(e);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    // Intersection Observer for animations
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          setIsVisible(prev => ({
-            ...prev,
-            [entry.target.id]: entry.isIntersecting
-          }));
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    window.addEventListener('mousemove', throttledMouseMove);
-    document.querySelectorAll('[id^="section-"]').forEach(el => observer.observe(el));
-
-    return () => {
-      window.removeEventListener('mousemove', throttledMouseMove);
-      observer.disconnect();
-    };
-  }, []);
+  const handleNavigation = (path) => {
+    console.log('Navigate to:', path);
+    // Navigation logic would be handled by your router
+  };
 
   const features = [
     {
-      icon: FileText,
-      title: 'Intuitive Paper Builder',
-      description: 'Create custom question papers with a drag-and-drop interface, saving hours of manual work.',
-      color: 'from-blue-500 to-cyan-600'
+      icon: Search,
+      title: 'Smart Question Search',
+      description: 'Browse through extensive image-based question bank with advanced filtering by subject, year, and exam type.',
+      color: 'bg-blue-500'
     },
     {
-      icon: Database,
-      title: 'Extensive Question Bank',
-      description: 'Access a vast, categorized library of questions and easily integrate them into your papers.',
-      color: 'from-emerald-500 to-teal-600'
+      icon: Edit3,
+      title: 'Paper Builder',
+      description: 'Drag-and-drop interface to create custom question papers with comments and annotations.',
+      color: 'bg-green-500'
     },
     {
-      icon: Printer,
-      title: 'Professional Typesetting',
-      description: 'Generate perfectly formatted, print-ready papers with advanced typesetting features.',
-      color: 'from-purple-500 to-pink-600'
+      icon: Upload,
+      title: 'Custom Questions',
+      description: 'Upload your own questions to expand the shared question bank for all teachers.',
+      color: 'bg-purple-500'
     },
     {
-      icon: Users,
-      title: 'Collaborative Platform',
-      description: 'Work together with your team to create and review papers in real-time.',
-      color: 'from-orange-500 to-red-600'
-    },
-    {
-      icon: Zap,
-      title: 'AI-Powered Suggestions',
-      description: 'Get intelligent recommendations for questions based on curriculum and difficulty.',
-      color: 'from-violet-500 to-purple-600'
-    },
-    {
-      icon: Award,
-      title: 'Quality Assurance',
-      description: 'Built-in plagiarism detection and quality checks ensure academic integrity.',
-      color: 'from-amber-500 to-yellow-600'
+      icon: MessageCircle,
+      title: 'JV Graphics Integration',
+      description: 'Direct WhatsApp communication with professional typesetters for final document preparation.',
+      color: 'bg-orange-500'
     }
   ];
 
   const stats = [
-    { icon: Users, number: '10,000+', label: 'Active Educators' },
-    { icon: FileText, number: '500K+', label: 'Papers Created' },
-    { icon: Globe, number: '4.9/5', label: 'User Rating' },
-    { icon: CheckCircle, number: '50+', label: 'Countries' }
+    { number: '50K+', label: 'Question Bank', icon: Database },
+    { number: '1,000+', label: 'Teachers', icon: Users },
+    { number: '15K+', label: 'Papers Created', icon: FileText },
+    { number: '4.8/5', label: 'User Rating', icon: Award }
+  ];
+
+  const workflow = [
+    {
+      step: 1,
+      title: 'Filter & Search',
+      description: 'Select subject, exam type, and filter by year or school to find relevant questions',
+      icon: Filter
+    },
+    {
+      step: 2,
+      title: 'Build Paper',
+      description: 'Select questions, add comments, and arrange them using our intuitive paper builder',
+      icon: Edit3
+    },
+    {
+      step: 3,
+      title: 'Preview & Pay',
+      description: 'Review your paper, make final edits, and complete payment for typesetting service',
+      icon: CreditCard
+    },
+    {
+      step: 4,
+      title: 'Get Professional PDF',
+      description: 'Receive professionally typeset documents via WhatsApp from JV Graphics team',
+      icon: MessageCircle
+    }
   ];
 
   return (
-    <div className="relative min-h-screen">
-      {/* Simplified background with mouse tracking */}
-      <div 
-        className="fixed inset-0 transition-all duration-700 pointer-events-none opacity-20"
-        style={{
-          background: `radial-gradient(circle at ${mousePosition.x}% ${mousePosition.y}%, 
-            rgba(59, 130, 246, 0.15) 0%, 
-            transparent 50%)`
-        }}
-      />
-
-      {/* Reduced floating shapes for performance */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className={`absolute opacity-5 ${
-              i % 3 === 0 ? 'bg-blue-400' : 
-              i % 3 === 1 ? 'bg-purple-400' : 'bg-emerald-400'
-            } rounded-full blur-2xl`}
-            style={{
-              width: `${120 + Math.random() * 100}px`,
-              height: `${120 + Math.random() * 100}px`,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `float ${20 + Math.random() * 10}s linear infinite`,
-              animationDelay: `${Math.random() * 5}s`
-            }}
-          />
-        ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
+      {/* JV Graphics Themed 3D Background */}
+      <div className="absolute inset-0 opacity-8">
+        {/* Typesetting desks */}
+        <div className="absolute top-20 left-1/4 w-20 h-12 bg-gradient-to-br from-amber-300 to-amber-400 rounded shadow-lg transform rotate-6">
+          <div className="w-full h-full bg-gradient-to-t from-amber-400 to-amber-200 rounded"></div>
+        </div>
+        <div className="absolute top-32 right-1/4 w-20 h-12 bg-gradient-to-br from-amber-300 to-amber-400 rounded shadow-lg transform -rotate-8">
+          <div className="w-full h-full bg-gradient-to-t from-amber-400 to-amber-200 rounded"></div>
+        </div>
+        
+        {/* Design tools - Pens and Pencils */}
+        <div className="absolute top-28 left-1/3 w-1 h-14 bg-blue-600 rounded-full shadow transform rotate-45"></div>
+        <div className="absolute top-38 right-1/3 w-1 h-14 bg-red-600 rounded-full shadow transform -rotate-30"></div>
+        <div className="absolute bottom-32 left-1/4 w-1.5 h-16 bg-yellow-500 rounded-full shadow transform rotate-60">
+          <div className="w-full h-2 bg-pink-400 rounded-full mt-14"></div>
+        </div>
+        
+        {/* Question papers */}
+        <div className="absolute top-16 right-16 w-12 h-16 bg-white shadow-md transform rotate-12 rounded border">
+          <div className="p-1 space-y-0.5">
+            <div className="h-0.5 bg-gray-300 w-3/4"></div>
+            <div className="h-0.5 bg-gray-300 w-1/2"></div>
+            <div className="h-0.5 bg-gray-300 w-4/5"></div>
+          </div>
+        </div>
+        <div className="absolute bottom-20 right-20 w-12 h-16 bg-white shadow-md transform -rotate-8 rounded border">
+          <div className="p-1 space-y-0.5">
+            <div className="h-0.5 bg-blue-300 w-full"></div>
+            <div className="h-0.5 bg-blue-300 w-2/3"></div>
+            <div className="h-0.5 bg-blue-300 w-4/5"></div>
+          </div>
+        </div>
       </div>
 
       {/* Hero Section */}
-      <section 
-        id="section-hero"
-        className={`relative min-h-screen flex items-center justify-center px-6 transition-all duration-700 ${isVisible['section-hero'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
-      >
-        {/* Simplified hero background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-800">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/70 via-purple-600/60 to-pink-600/70"></div>
-        </div>
-
-        {/* Reduced particles for performance */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 bg-white/30 rounded-full animate-pulse"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${2 + Math.random() * 2}s`
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Hero content */}
-        <div className="relative z-10 max-w-6xl mx-auto text-center text-white">
-          {/* Logo section */}
-          <div className="mb-8 flex justify-center">
-            <div className="relative group">
-              <div className="h-20 w-20 bg-white/10 backdrop-blur-xl rounded-3xl flex items-center justify-center border border-white/20 shadow-2xl group-hover:scale-110 transition-transform duration-500">
-                <Sparkles className="text-white w-10 h-10" />
-              </div>
-              <div className="absolute -inset-2 bg-gradient-to-br from-cyan-400/30 to-purple-400/30 rounded-3xl opacity-50 blur-xl animate-pulse"></div>
+      <section className="relative z-10 min-h-screen flex items-center justify-center px-6">
+        <div className="max-w-7xl mx-auto text-center">
+          {/* Logo */}
+          <div className="mb-8">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl shadow-xl mb-6">
+              <FileText className="w-12 h-12 text-white" />
             </div>
+            <h1 className="text-6xl md:text-7xl font-black text-gray-900 mb-4">
+              Paper Master
+            </h1>
+            <p className="text-2xl text-blue-600 font-semibold mb-2">
+              by JV Graphics
+            </p>
+            <p className="text-xl text-gray-600">
+              Professional Question Paper Creation & Typesetting Platform
+            </p>
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-            <span className="bg-gradient-to-r from-white via-cyan-100 to-purple-100 bg-clip-text text-transparent">
-              Empower Your Education
-            </span>
-            <br />
-            <span className="bg-gradient-to-r from-cyan-200 via-blue-200 to-purple-200 bg-clip-text text-transparent">
-              with Paper Master
-            </span>
-          </h1>
-
-          <p className="text-xl font-light mb-12 opacity-90 max-w-3xl mx-auto leading-relaxed">
-            Crafting knowledge, effortlessly. Design, manage, and publish academic papers with unprecedented ease.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-16">
-            <button
-              onClick={() => navigate('/teacher/paper-builder')}
-              className="group relative px-8 py-4 bg-white text-purple-700 rounded-2xl text-lg font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105"
-            >
-              <div className="flex items-center space-x-3">
-                <Play size={20} />
-                <span>Start Building a Paper</span>
-                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </div>
-            </button>
-
-            <button
-              onClick={() => navigate('/admin/questions/upload')}
-              className="group relative px-8 py-4 border-2 border-white text-white rounded-2xl text-lg font-bold hover:bg-white hover:text-purple-700 transition-all duration-300 hover:scale-105 backdrop-blur-xl"
-            >
-              <div className="flex items-center space-x-3">
-                <Database size={20} />
-                <span>Admin Portal</span>
-                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
-              </div>
-            </button>
+          {/* Description */}
+          <div className="max-w-4xl mx-auto mb-12">
+            <p className="text-lg text-gray-700 leading-relaxed">
+              Create professional exam papers from our extensive image-based question bank. 
+              Filter by subject, year, and exam type, then get professionally typeset documents 
+              delivered via WhatsApp by our expert design team.
+            </p>
           </div>
 
-          {/* Stats Section */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center group">
-                <div className="flex justify-center mb-3">
-                  <div className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 group-hover:scale-110 transition-transform duration-300">
-                    <stat.icon size={24} className="text-cyan-300" />
-                  </div>
+          {/* User Role Buttons */}
+          <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
+            <button
+              onClick={() => handleNavigation('/teacher/login')}
+              className="group px-10 py-5 bg-blue-600 text-white rounded-2xl font-bold text-lg hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
+            >
+              <div className="flex items-center space-x-3">
+                <GraduationCap size={24} />
+                <div className="text-left">
+                  <div>I'm a Teacher</div>
+                  <div className="text-sm font-normal opacity-90">Create Question Papers</div>
                 </div>
-                <div className="text-2xl font-bold text-cyan-100">{stat.number}</div>
-                <div className="text-sm text-white/80">{stat.label}</div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleNavigation('/admin/login')}
+              className="group px-10 py-5 border-2 border-blue-600 text-blue-600 rounded-2xl font-bold text-lg hover:bg-blue-600 hover:text-white transition-all"
+            >
+              <div className="flex items-center space-x-3">
+                <Database size={24} />
+                <div className="text-left">
+                  <div>JV Graphics Admin</div>
+                  <div className="text-sm font-normal opacity-75">Manage Question Bank</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center p-4 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <stat.icon className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="text-2xl font-bold text-gray-900">{stat.number}</div>
+                <div className="text-sm text-gray-600">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -224,123 +177,169 @@ const Home = () => {
       </section>
 
       {/* Features Section */}
-      <section 
-        id="section-features"
-        className={`py-20 px-6 bg-gradient-to-br from-gray-50 to-blue-50/30 transition-all duration-700 delay-200 ${isVisible['section-features'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
-      >
+      <section className="py-20 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-800 mb-6">
-              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Powerful Features
-              </span>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Complete Question Paper Solution
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Everything you need to create, manage, and deliver exceptional educational assessments
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              From question selection to professional typesetting, we handle every step of your exam paper creation process
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <div 
-                key={index}
-                className="group relative p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500 hover:scale-105 bg-white/80 backdrop-blur-sm border border-white/60"
-              >
-                {/* Icon */}
-                <div className={`relative inline-flex p-3 rounded-xl bg-gradient-to-br ${feature.color} text-white mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon size={28} />
+              <div key={index} className="text-center p-6 rounded-xl hover:shadow-lg transition-all hover:scale-105">
+                <div className={`w-16 h-16 ${feature.color} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                  <feature.icon className="w-8 h-8 text-white" />
                 </div>
-
-                {/* Content */}
-                <h3 className="text-xl font-bold text-gray-800 mb-3">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {feature.description}
-                </p>
-
-                {/* Hover effect indicator */}
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <ArrowRight size={18} className="text-purple-600" />
-                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
+                <p className="text-gray-600">{feature.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section 
-        id="section-cta"
-        className={`py-20 px-6 transition-all duration-700 delay-400 ${isVisible['section-cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
-      >
-        <div className="max-w-4xl mx-auto">
-          <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl p-12 shadow-2xl text-center text-white overflow-hidden">
-            {/* Background effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+      {/* How It Works */}
+      <section className="py-20 px-6 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
+            <p className="text-lg text-gray-600">Simple 4-step process to create professional question papers</p>
+          </div>
 
-            <div className="relative z-10">
-              <h2 className="text-3xl font-bold mb-6">
-                Ready to Transform Your Paper Creation?
-              </h2>
-              <p className="text-lg mb-8 opacity-90">
-                Join thousands of educators revolutionizing their assessment workflow with Paper Master.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-8">
-                <button
-                  onClick={() => navigate('/teacher/paper-builder')}
-                  className="group px-8 py-4 bg-white text-purple-700 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
-                >
-                  <div className="flex items-center justify-center space-x-3">
-                    <Zap size={20} />
-                    <span>Get Started Today!</span>
-                  </div>
-                </button>
-                
-                <button
-                  onClick={() => navigate('/teacher/dashboard')}
-                  className="group px-8 py-4 border-2 border-white text-white rounded-2xl text-lg font-bold hover:bg-white hover:text-purple-700 transition-all duration-300 hover:scale-105"
-                >
-                  <div className="flex items-center justify-center space-x-3">
-                    <BookOpen size={20} />
-                    <span>View Dashboard</span>
-                  </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {workflow.map((step, index) => (
+              <div key={index} className="text-center relative">
+                {index < workflow.length - 1 && (
+                  <div className="hidden lg:block absolute top-8 -right-4 w-8 h-0.5 bg-blue-200"></div>
+                )}
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold">
+                  {step.step}
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <step.icon className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
+                <p className="text-gray-600">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Flexible Pricing</h2>
+            <p className="text-lg text-gray-600">Choose the plan that works for you</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="p-8 border-2 border-gray-200 rounded-2xl">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Free Tier</h3>
+                <div className="text-4xl font-bold text-green-600 mb-6">Free</div>
+                <ul className="space-y-3 text-left mb-8">
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span>Up to 50 questions per paper</span>
+                  </li>
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span>Access to question bank</span>
+                  </li>
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span>Basic paper builder</span>
+                  </li>
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span>Upload custom questions</span>
+                  </li>
+                </ul>
+                <button className="w-full py-3 border-2 border-green-600 text-green-600 rounded-lg font-semibold hover:bg-green-600 hover:text-white transition-colors">
+                  Get Started Free
                 </button>
               </div>
+            </div>
 
-              <div className="flex flex-wrap justify-center gap-6 text-white/90 text-sm">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle size={16} />
-                  <span>Free to Start</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle size={16} />
-                  <span>No Credit Card Required</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle size={16} />
-                  <span>24/7 Support</span>
-                </div>
+            <div className="p-8 bg-blue-600 text-white rounded-2xl relative">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                Most Popular
+              </div>
+              <div className="text-center">
+                <h3 className="text-2xl font-bold mb-4">Professional</h3>
+                <div className="text-4xl font-bold mb-6">Pay per Use</div>
+                <ul className="space-y-3 text-left mb-8">
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-blue-200" />
+                    <span>Unlimited questions</span>
+                  </li>
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-blue-200" />
+                    <span>Professional typesetting via JV Graphics</span>
+                  </li>
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-blue-200" />
+                    <span>WhatsApp delivery</span>
+                  </li>
+                  <li className="flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-blue-200" />
+                    <span>PayHere secure payments</span>
+                  </li>
+                </ul>
+                <button className="w-full py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                  Start Creating
+                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Simplified CSS Animations for better performance */}
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { 
-            transform: translateY(0px) scale(1); 
-            opacity: 0.05; 
-          }
-          50% { 
-            transform: translateY(-20px) scale(1.05); 
-            opacity: 0.1; 
-          }
-        }
-      `}</style>
+      {/* JV Graphics Partnership */}
+      <section className="py-20 px-6 bg-gradient-to-br from-blue-900 to-purple-900 text-white">
+        <div className="max-w-6xl mx-auto text-center">
+          <div className="mb-8">
+            <PenTool className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h2 className="text-4xl font-bold mb-4">Powered by JV Graphics</h2>
+            <p className="text-xl text-blue-100 max-w-3xl mx-auto">
+              Professional design and typesetting services ensure your question papers meet the highest academic standards
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8 mt-16">
+            <div className="text-center">
+              <Award className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Expert Typesetters</h3>
+              <p className="text-blue-200">Professional design team with years of academic publishing experience</p>
+            </div>
+            <div className="text-center">
+              <Clock className="w-12 h-12 text-green-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Quick Turnaround</h3>
+              <p className="text-blue-200">Receive your professionally formatted papers within 24-48 hours</p>
+            </div>
+            <div className="text-center">
+              <MessageCircle className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Direct Communication</h3>
+              <p className="text-blue-200">WhatsApp integration for seamless communication and file delivery</p>
+            </div>
+          </div>
+
+          <div className="mt-16">
+            <button
+              onClick={() => handleNavigation('/teacher/register')}
+              className="px-8 py-4 bg-white text-blue-900 rounded-xl font-bold text-lg hover:bg-gray-100 transition-colors shadow-xl"
+            >
+              Start Your First Paper Today
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

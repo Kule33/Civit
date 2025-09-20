@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, Settings, Sparkles, Zap, Menu, X } from 'lucide-react';
+import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, Settings, BookOpen, Menu, X } from 'lucide-react';
 
 const Header = () => {
   const [scrollY, setScrollY] = useState(0);
-  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeHover, setActiveHover] = useState(null);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -15,181 +13,142 @@ const Header = () => {
   }, []);
 
   const navigationItems = [
-    { name: 'Home', path: '/', icon: Home, color: 'from-emerald-400 to-teal-600', hoverColor: 'hover:from-emerald-500 hover:to-teal-700' },
-    { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard, color: 'from-blue-400 to-indigo-600', hoverColor: 'hover:from-blue-500 hover:to-indigo-700' },
-    { name: 'Paper Builder', path: '/teacher/paper-builder', icon: FileText, color: 'from-purple-400 to-pink-600', hoverColor: 'hover:from-purple-500 hover:to-pink-700' },
-    { name: 'Payment', path: '/teacher/payment', icon: CreditCard, color: 'from-amber-400 to-orange-600', hoverColor: 'hover:from-amber-500 hover:to-orange-700' },
-    { name: 'Question Upload', path: '/admin/questions/upload', icon: Upload, color: 'from-cyan-400 to-blue-600', hoverColor: 'hover:from-cyan-500 hover:to-blue-700' },
-    { name: 'Manage Questions', path: '/admin/questions/manage', icon: Database, color: 'from-violet-400 to-purple-600', hoverColor: 'hover:from-violet-500 hover:to-purple-700' },
-    { name: 'Typeset Upload', path: '/admin/typeset/upload', icon: Type, color: 'from-rose-400 to-red-600', hoverColor: 'hover:from-rose-500 hover:to-red-700' },
+    { name: 'Home', path: '/', icon: Home },
+    { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
+    { name: 'Paper Builder', path: '/teacher/paper-builder', icon: FileText },
+    { name: 'Payment', path: '/teacher/payment', icon: CreditCard },
+    { name: 'Question Upload', path: '/admin/questions/upload', icon: Upload },
+    { name: 'Manage Questions', path: '/admin/questions/manage', icon: Database },
+    { name: 'Typeset Upload', path: '/admin/typeset/upload', icon: Type },
   ];
 
   return (
-    <header 
-      className={`relative transition-all duration-700 ${scrollY > 50 ? 'shadow-2xl backdrop-blur-xl' : 'shadow-lg'} z-50`}
-      onMouseEnter={() => setIsHeaderHovered(true)}
-      onMouseLeave={() => setIsHeaderHovered(false)}
-    >
-      {/* Dynamic animated background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-800"></div>
-      <div className={`absolute inset-0 bg-gradient-to-r from-blue-600/80 via-purple-600/70 to-pink-600/80 transition-all duration-1000 ${isHeaderHovered ? 'opacity-90' : 'opacity-70'}`}></div>
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-cyan-400/10"></div>
+    <header className={`bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 transition-all duration-500 ${scrollY > 0 ? 'shadow-xl bg-white/90' : 'shadow-lg'} relative overflow-hidden`}>
+      {/* Subtle animated background elements */}
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 via-purple-50/20 to-indigo-50/30"></div>
+      <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-400/60 via-purple-400/60 to-indigo-400/60"></div>
       
-      {/* Animated mesh background */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 animate-pulse"></div>
-        <div 
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: `radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%)`,
-            backgroundSize: '100% 100%',
-            animation: 'mesh 8s ease-in-out infinite'
-          }}
-        ></div>
-      </div>
-      
-      {/* Floating particles effect */}
+      {/* Subtle floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(30)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-white/20 rounded-full"
+            className="absolute w-1 h-1 bg-blue-300/30 rounded-full animate-float"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `float ${3 + Math.random() * 4}s linear infinite`,
-              animationDelay: `${Math.random() * 2}s`
+              left: `${15 + i * 15}%`,
+              top: `${30 + (i % 2) * 40}%`,
+              animationDelay: `${i * 0.8}s`,
+              animationDuration: `${4 + Math.random() * 2}s`
             }}
           />
         ))}
       </div>
-      
-      {/* Main header content */}
-      <div className="relative z-10">
-        {/* Top section */}
-        <div className="px-6 py-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            {/* Logo with modern glassmorphism */}
-            <div className="flex items-center space-x-4 group">
-              <div className="relative transform group-hover:scale-110 transition-all duration-500">
-                <div className="h-16 w-16 bg-white/10 backdrop-blur-2xl rounded-3xl flex items-center justify-center border border-white/20 shadow-2xl relative overflow-hidden group-hover:bg-white/15">
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/30 to-purple-400/30 group-hover:from-cyan-400/40 group-hover:to-purple-400/40 transition-all duration-500"></div>
-                  <Sparkles className="text-white w-7 h-7 relative z-10 group-hover:animate-spin" />
-                </div>
-                <div className="absolute -inset-2 bg-gradient-to-br from-cyan-400/40 to-purple-400/40 rounded-3xl opacity-50 blur-xl group-hover:opacity-75 transition-opacity duration-500"></div>
+      {/* Top section */}
+      <div className="px-6 py-4 relative z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center space-x-3 group">
+            <div className="relative transform group-hover:scale-110 transition-all duration-500">
+              <div className="h-12 w-12 bg-blue-600/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg border border-blue-200/50 relative overflow-hidden group-hover:bg-blue-600">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 group-hover:from-blue-400/30 group-hover:to-purple-400/30 transition-all duration-500"></div>
+                <BookOpen className="text-white w-6 h-6 relative z-10 group-hover:rotate-12 transition-transform duration-500" />
               </div>
-              <div className="transform group-hover:translate-x-2 transition-all duration-500">
-                <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-white via-cyan-100 to-purple-100 bg-clip-text drop-shadow-2xl group-hover:from-cyan-100 group-hover:to-purple-200 transition-all duration-500">
-                  Paper Master
-                </h1>
-                <p className="text-cyan-100/90 text-sm font-medium flex items-center gap-2 mt-1">
-                  <Zap size={14} className="text-yellow-300 animate-pulse" />
-                  Educational Paper Management System
-                </p>
-              </div>
+              <div className="absolute -inset-1 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur-lg transition-opacity duration-500"></div>
             </div>
-
-            {/* Desktop User section */}
-            <div className="hidden md:flex items-center space-x-6">
-              <button className="relative p-3 rounded-2xl text-white/80 hover:text-white hover:bg-white/15 transition-all duration-500 backdrop-blur-xl border border-white/20 group hover:scale-110">
-                <Bell size={22} className="group-hover:animate-bounce" />
-                <span className="absolute -top-1 -right-1 h-6 w-6 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-xl animate-pulse">
-                  <span className="text-xs text-white font-bold">3</span>
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-md"></div>
-              </button>
-
-              <div className="flex items-center space-x-3 px-5 py-3 rounded-2xl bg-white/15 backdrop-blur-2xl border border-white/25 hover:bg-white/20 transition-all duration-500 group hover:scale-105">
-                <div className="h-12 w-12 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-2xl flex items-center justify-center text-white font-bold shadow-xl group-hover:scale-110 transition-transform duration-300">
-                  JD
-                </div>
-                <div>
-                  <span className="text-sm font-semibold text-white">John Doe</span>
-                  <p className="text-xs text-cyan-100/80">Administrator</p>
-                </div>
-              </div>
+            <div className="transform group-hover:translate-x-1 transition-all duration-500">
+              <h1 className="text-3xl font-bold text-gray-900">Paper Master</h1>
+              <p className="text-base text-gray-600 font-medium flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Educational Paper Management
+              </p>
             </div>
+          </div>
 
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden p-3 rounded-2xl text-white/80 hover:text-white hover:bg-white/15 transition-all duration-300 backdrop-blur-xl border border-white/20"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {/* Desktop User section */}
+          <div className="hidden md:flex items-center space-x-4">
+            <button className="relative p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-500 backdrop-blur-sm border border-gray-200/50 group hover:scale-110">
+              <Bell size={20} className="group-hover:animate-bounce" />
+              <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                <span className="text-xs text-white font-bold">3</span>
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-purple-100/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-sm"></div>
             </button>
+
+            <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-50/80 backdrop-blur-sm hover:bg-gray-100/80 transition-all duration-500 shadow-sm border border-gray-200/50 group hover:scale-105">
+              <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg group-hover:scale-110 transition-transform duration-300">
+                JD
+              </div>
+              <div>
+                <span className="text-base font-semibold text-gray-900">John Doe</span>
+                <p className="text-sm text-gray-600 font-medium">Administrator</p>
+              </div>
+            </div>
           </div>
+
+          {/* Mobile menu button */}
+          <button
+            className="md:hidden p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-300 backdrop-blur-sm border border-gray-200/50"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+      </div>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:block relative border-t border-white/10">
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-800/90 via-purple-800/80 to-slate-800/90 backdrop-blur-2xl"></div>
-          <div className="relative z-10 max-w-7xl mx-auto">
-            <nav className="flex items-center relative">
-              {navigationItems.map((item, index) => (
-                <NavLink
-                  key={item.name}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `relative flex items-center px-6 py-5 font-medium transition-all duration-500 group whitespace-nowrap ${
-                      isActive
-                        ? 'text-white'
-                        : 'text-purple-100/85 hover:text-white'
-                    }`
-                  }
-                  onMouseEnter={() => setActiveHover(index)}
-                  onMouseLeave={() => setActiveHover(null)}
-                >
-                  {({ isActive }) => (
-                    <>
-                      {/* Active indicator with item-specific colors */}
-                      {isActive && (
-                        <>
-                          <div className={`absolute inset-0 bg-gradient-to-r ${item.color} rounded-2xl opacity-90 animate-pulse`}></div>
-                          <div className={`absolute inset-0 bg-gradient-to-r ${item.color} rounded-2xl blur-lg opacity-60`}></div>
-                        </>
-                      )}
-                      
-                      {/* Hover effect */}
-                      <div className={`absolute inset-0 bg-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-xl ${activeHover === index ? 'scale-105' : ''}`}></div>
-                      
-                      {/* Content */}
-                      <div className="relative flex items-center space-x-3 z-10">
-                        <item.icon size={20} className="transition-all duration-500 group-hover:scale-125 group-hover:rotate-12" />
-                        <span className="font-medium text-sm">{item.name}</span>
-                      </div>
-
-                      {/* Floating indicator */}
-                      {isActive && (
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                      )}
-
-                      {/* Ripple effect on hover */}
-                      {activeHover === index && (
-                        <div className="absolute inset-0 bg-white/5 rounded-2xl animate-ping"></div>
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              ))}
-              
-              {/* Settings button */}
+      {/* Desktop Navigation */}
+      <div className="hidden md:block relative border-t border-gray-200/50">
+        <div className="absolute inset-0 bg-gray-50/60 backdrop-blur-sm"></div>
+        <div className="relative z-10 max-w-7xl mx-auto">
+          <nav className="flex items-center">
+            {navigationItems.map((item) => (
               <NavLink
-                to="/settings"
-                className="relative flex items-center px-6 py-5 font-medium text-purple-100/85 hover:text-white transition-all duration-500 group ml-auto"
+                key={item.name}
+                to={item.path}
+                className={({ isActive }) =>
+                  `relative flex items-center px-5 py-4 text-base font-semibold transition-all duration-500 group ${
+                    isActive
+                      ? 'text-blue-600'
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`
+                }
               >
-                <div className="absolute inset-0 bg-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-xl group-hover:scale-105"></div>
-                <div className="relative flex items-center space-x-3 z-10">
-                  <Settings size={20} className="transition-all duration-700 group-hover:rotate-180" />
-                  <span className="font-medium text-sm">Settings</span>
-                </div>
+                {({ isActive }) => (
+                  <>
+                    {/* Active indicator with subtle glow effect */}
+                    {isActive && (
+                      <>
+                        <div className="absolute inset-0 bg-blue-50/80 rounded-2xl"></div>
+                        <div className="absolute inset-0 bg-blue-100/40 rounded-2xl blur-sm opacity-60"></div>
+                      </>
+                    )}
+                    
+                    {/* Hover effect */}
+                    <div className="absolute inset-0 bg-gray-100/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-sm group-hover:scale-105"></div>
+                    
+                    <div className="flex items-center space-x-3 relative z-10">
+                      <item.icon size={20} className="transition-all duration-500 group-hover:scale-110 group-hover:rotate-6" />
+                      <span>{item.name}</span>
+                    </div>
+
+                    {/* Enhanced animated underline */}
+                    <div className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 shadow-sm ${
+                      isActive ? 'w-full opacity-100' : 'w-0 group-hover:w-full opacity-80'
+                    }`}></div>
+                    
+                    {/* Floating indicator for active */}
+                    {isActive && (
+                      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm"></div>
+                    )}
+                  </>
+                )}
               </NavLink>
-            </nav>
-          </div>
+            )            )}
+          </nav>
         </div>
       </div>
 
       {/* Mobile Navigation Menu */}
-      <div className={`md:hidden absolute top-full left-0 right-0 bg-slate-900/95 backdrop-blur-2xl border-b border-white/10 transition-all duration-500 ${isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+      <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-gray-200/50 transition-all duration-500 ${isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
         <nav className="px-6 py-4 space-y-2">
           {navigationItems.map((item, index) => (
             <NavLink
@@ -198,39 +157,52 @@ const Header = () => {
               className={({ isActive }) =>
                 `flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
                   isActive
-                    ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-white border border-white/20'
-                    : 'text-purple-100/85 hover:text-white hover:bg-white/10'
+                    ? 'bg-blue-50/80 text-blue-600 font-semibold border border-blue-200/50'
+                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50/80 font-medium'
                 }`
               }
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <item.icon size={18} />
-              <span className="font-medium">{item.name}</span>
+              <item.icon size={20} />
+              <span className="font-medium text-base">{item.name}</span>
             </NavLink>
           ))}
-          <NavLink
-            to="/settings"
-            className="flex items-center space-x-3 px-4 py-3 rounded-xl text-purple-100/85 hover:text-white hover:bg-white/10 transition-all duration-300"
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <Settings size={18} />
-            <span className="font-medium">Settings</span>
-          </NavLink>
         </nav>
       </div>
 
       {/* CSS Animations */}
       <style jsx>{`
-        @keyframes float {
-          0% { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
-          50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
-          100% { transform: translateY(0px) rotate(360deg); opacity: 0.8; }
+        @keyframes gradient-x {
+          0%, 100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
         }
         
-        @keyframes mesh {
-          0%, 100% { transform: scale(1) rotate(0deg); }
-          33% { transform: scale(1.05) rotate(2deg); }
-          66% { transform: scale(0.95) rotate(-2deg); }
+        @keyframes float {
+          0% { 
+            transform: translateY(0px) rotate(0deg); 
+            opacity: 0.6; 
+          }
+          50% { 
+            transform: translateY(-10px) rotate(180deg); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translateY(0px) rotate(360deg); 
+            opacity: 0.6; 
+          }
+        }
+        
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradient-x 3s ease infinite;
+        }
+        
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
         }
       `}</style>
     </header>

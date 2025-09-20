@@ -27,7 +27,7 @@ function App() {
           {/* Teacher Routes */}
           <Route path="teacher/dashboard" element={<TeacherDashboard />} />
           <Route path="teacher/paper-builder" element={<PaperBuilder />} />
-          <Route path="teacher/teacher-payment" element={<TeacherPayment />} />
+          <Route path="teacher/payment" element={<TeacherPayment />} />
 
           {/* Admin Routes */}
           <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
