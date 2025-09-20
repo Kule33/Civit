@@ -1,50 +1,7 @@
 import axios from 'axios';
+import { getSubjectName } from '../utils/subjectMapping.js';
 
 const API_BASE_URL = 'http://localhost:5201/api/questions';
-
-// Mapping from frontend values to backend database names
-const subjectValueToName = {
-  // A/L Physical Science
-  'pure_maths': 'Pure Mathematics',
-  'applied_maths': 'Applied Mathematics',
-  'physics': 'Physics',
-  'chemistry': 'Chemistry',
-  
-  // A/L Biological Science
-  'biology': 'Biology',
-  
-  // A/L Commerce
-  'business_studies': 'Business Studies',
-  'accounting': 'Accounting',
-  'economics': 'Economics',
-  
-  // A/L Technology
-  'engineering_tech': 'Engineering Technology',
-  'bio_systems_tech': 'Bio-Systems Technology',
-  
-  // A/L Arts
-  'sinhala': 'Sinhala',
-  'history': 'History',
-  'geography': 'Geography',
-  'buddhism': 'Buddhism',
-  'english': 'English',
-  'tamil': 'Tamil',
-  'music': 'Music',
-  'art': 'Art',
-  'dancing': 'Dancing',
-  'drama': 'Drama',
-  
-  // O/L Subjects
-  'mathematics': 'Mathematics',
-  'science': 'Science',
-  'civics': 'Civics',
-  'ict': 'Information & Communication Technology',
-  'health': 'Health & Physical Education',
-  'commerce': 'Commerce',
-  
-  // Grade 5
-  'environment': 'Environment Related Activities'
-};
 
 // Get Cloudinary signature from backend
 export const getCloudinarySignature = async (metadata) => {
@@ -172,7 +129,7 @@ export const saveQuestionMetadata = async (metadataWithUrls) => {
       country: metadataWithUrls.country,
       examType: metadataWithUrls.examType,
       stream: metadataWithUrls.stream,
-      subject: subjectValueToName[metadataWithUrls.subject] || metadataWithUrls.subject,
+      subject: getSubjectName(metadataWithUrls.subject),
       paperType: metadataWithUrls.paperType,
       paperCategory: metadataWithUrls.paperCategory,
       year: metadataWithUrls.year,

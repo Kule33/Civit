@@ -8,6 +8,7 @@ import SelectField from '../../components/ui/SelectField.jsx';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import { useSubmission } from '../../context/SubmissionContext';
 import { useMetadata } from '../../hooks/useMetadata.js'; // Import the hook
+import { getSubjectName } from '../../utils/subjectMapping.js'; // Import subject mapping utility
 import axios from 'axios';
 
 const PaperBuilder = () => {
@@ -37,6 +38,7 @@ const PaperBuilder = () => {
     updateMetadata(field, value);
   };
 
+
   const handleSearch = async () => {
     setLoading(true);
     setError('');
@@ -46,7 +48,13 @@ const PaperBuilder = () => {
       Object.entries(metadata).forEach(([key, value]) => {
         // Only append if the value is not empty, null, or undefined
         if (value !== '' && value !== null && value !== undefined) {
+          // Transform subject value to actual subject name for backend
+          if (key === 'subject') {
+            const subjectName = getSubjectName(value);
+            params.append(key, subjectName);
+          } else {
             params.append(key, value);
+          }
         }
       });
 
