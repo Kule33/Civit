@@ -310,7 +310,7 @@ const SubmissionOverlay = ({
       </div>
 
       {/* Enhanced CSS Animations */}
-      <style jsx>{`
+      <style jsx="true">{`
         @keyframes sparkle {
           0% { 
             opacity: 0; 

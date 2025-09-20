@@ -86,7 +86,7 @@ const MainLayout = () => {
       <Footer />
 
       {/* Clean scrollbar styling */}
-      <style jsx>{`
+      <style jsx="true">{`
         /* Custom scrollbar styling */
         ::-webkit-scrollbar {
           width: 6px;

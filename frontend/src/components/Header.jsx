@@ -171,7 +171,7 @@ const Header = () => {
       </div>
 
       {/* CSS Animations */}
-      <style jsx>{`
+      <style jsx="true">{`
         @keyframes gradient-x {
           0%, 100% {
             background-position: 0% 50%;

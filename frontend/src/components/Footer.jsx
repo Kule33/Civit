@@ -272,7 +272,7 @@ const Footer = () => {
       </footer>
 
       {/* CSS Animations */}
-      <style jsx>{`
+      <style jsx="true">{`
         @keyframes meshFloat {
           0%, 100% { 
             transform: scale(1) rotate(0deg); 
