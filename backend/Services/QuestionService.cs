@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.AspNetCore.Http; // NEW: For IHttpContextAccessor
+using System.Security.Claims; // NEW: For checking roles
 
 namespace backend.Services
 {
@@ -14,19 +16,28 @@ namespace backend.Services
         private readonly IQuestionRepository _questionRepository;
         private readonly ISubjectRepository _subjectRepository;
         private readonly ISchoolRepository _schoolRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor; // NEW: Inject IHttpContextAccessor
 
         public QuestionService(
             IQuestionRepository questionRepository,
             ISubjectRepository subjectRepository,
-            ISchoolRepository schoolRepository)
+            ISchoolRepository schoolRepository,
+            IHttpContextAccessor httpContextAccessor) // NEW: Add to constructor
         {
             _questionRepository = questionRepository;
             _subjectRepository = subjectRepository;
             _schoolRepository = schoolRepository;
+            _httpContextAccessor = httpContextAccessor; // NEW: Assign
         }
 
         public async Task<QuestionResponseDto?> UploadQuestionAsync(QuestionUploadDto uploadDto)
         {
+            // NEW: Service-level role enforcement
+            if (!IsUserInRole("admin"))
+            {
+                throw new UnauthorizedAccessException("Only administrators can upload questions.");
+            }
+
             // Validate required file-related fields
             if (string.IsNullOrEmpty(uploadDto.FileUrl) || string.IsNullOrEmpty(uploadDto.FilePublicId))
             {
@@ -96,6 +107,15 @@ namespace backend.Services
 
         public async Task<QuestionResponseDto?> GetQuestionByIdAsync(Guid id)
         {
+            // NEW: Example of ensuring *any* authenticated user (admin/teacher) can view,
+            // though the controller [Authorize] already handles this.
+            // If you wanted to restrict specific questions based on who uploaded them,
+            // you'd retrieve the question and then compare its uploader ID to the current user's ID.
+            if (!IsAuthenticated()) // Assuming any authenticated user can view
+            {
+                 throw new UnauthorizedAccessException("Authentication is required to view questions.");
+            }
+
             var question = await _questionRepository.GetQuestionByIdWithDetailsAsync(id);
 
             if (question == null)
@@ -106,9 +126,14 @@ namespace backend.Services
             return MapQuestionToResponseDto(question);
         }
 
-        // Renamed and updated to accept search criteria
         public async Task<IEnumerable<QuestionResponseDto>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto)
         {
+            // NEW: Example of ensuring *any* authenticated user (admin/teacher) can view.
+            if (!IsAuthenticated()) // Assuming any authenticated user can search
+            {
+                 throw new UnauthorizedAccessException("Authentication is required to search questions.");
+            }
+
             var questions = await _questionRepository.GetFilteredQuestionsAsync(searchDto); // Pass searchDto to repository
             var questionDtos = new List<QuestionResponseDto>();
 
@@ -122,12 +147,21 @@ namespace backend.Services
 
         public async Task<bool> DeleteQuestionAsync(Guid id)
         {
+            // NEW: Service-level role enforcement
+            if (!IsUserInRole("admin"))
+            {
+                throw new UnauthorizedAccessException("Only administrators can delete questions.");
+            }
             return await _questionRepository.DeleteQuestionAsync(id);
         }
 
         // Subject management methods
         public async Task<IEnumerable<SubjectDto>> GetAllSubjectsAsync()
         {
+             if (!IsAuthenticated())
+            {
+                 throw new UnauthorizedAccessException("Authentication is required to view subjects.");
+            }
             var subjects = await _subjectRepository.GetAllSubjectsAsync();
             var subjectDtos = new List<SubjectDto>();
 
@@ -145,6 +179,10 @@ namespace backend.Services
 
         public async Task<SubjectDto?> GetSubjectByIdAsync(int id)
         {
+             if (!IsAuthenticated())
+            {
+                 throw new UnauthorizedAccessException("Authentication is required to view subjects.");
+            }
             var subject = await _subjectRepository.GetSubjectByIdAsync(id);
 
             if (subject == null)
@@ -161,12 +199,17 @@ namespace backend.Services
 
         public Task<SubjectDto> AddSubjectAsync(string subjectName)
         {
+            // If this method were to be enabled, you'd add role checks here too.
             throw new InvalidOperationException("Adding subjects is currently disabled due to manual ID assignment strategy. Please add subjects directly to the database with specific IDs.");
         }
 
         // School management methods
         public async Task<IEnumerable<SchoolDto>> GetAllSchoolsAsync()
         {
+             if (!IsAuthenticated())
+            {
+                 throw new UnauthorizedAccessException("Authentication is required to view schools.");
+            }
             var schools = await _schoolRepository.GetAllSchoolsAsync();
             var schoolDtos = new List<SchoolDto>();
 
@@ -184,6 +227,10 @@ namespace backend.Services
 
         public async Task<SchoolDto?> GetSchoolByIdAsync(int id)
         {
+             if (!IsAuthenticated())
+            {
+                 throw new UnauthorizedAccessException("Authentication is required to view schools.");
+            }
             var school = await _schoolRepository.GetSchoolByIdAsync(id);
 
             if (school == null)
@@ -200,6 +247,7 @@ namespace backend.Services
 
         public Task<SchoolDto> AddSchoolAsync(string schoolName)
         {
+            // If this method were to be enabled, you'd add role checks here too.
             throw new InvalidOperationException("Adding schools is currently disabled due to manual ID assignment strategy. Please add schools directly to the database with specific IDs.");
         }
 
@@ -231,6 +279,19 @@ namespace backend.Services
                 FilePublicId = question.FilePublicId,
                 UploadDate = question.UploadDate
             };
+        }
+
+        // NEW: Helper method to check if the current user is in a specific role
+        private bool IsUserInRole(string roleName)
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user != null && user.Identity?.IsAuthenticated == true && user.IsInRole(roleName);
+        }
+
+        // NEW: Helper method to check if the current user is authenticated
+        private bool IsAuthenticated()
+        {
+            return _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated == true;
         }
     }
 }

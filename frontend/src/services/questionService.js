@@ -1,49 +1,44 @@
 import axios from 'axios';
+import { getSubjectName } from '../utils/subjectMapping.js';
+import { supabase } from '../supabaseClient';
 
 const API_BASE_URL = 'http://localhost:5201/api/questions';
+const CLOUDINARY_API_URL = 'http://localhost:5201/api/cloudinary';
 
-// Mapping from frontend values to backend database names
-const subjectValueToName = {
-  // A/L Physical Science
-  'pure_maths': 'Pure Mathematics',
-  'applied_maths': 'Applied Mathematics',
-  'physics': 'Physics',
-  'chemistry': 'Chemistry',
-  
-  // A/L Biological Science
-  'biology': 'Biology',
-  
-  // A/L Commerce
-  'business_studies': 'Business Studies',
-  'accounting': 'Accounting',
-  'economics': 'Economics',
-  
-  // A/L Technology
-  'engineering_tech': 'Engineering Technology',
-  'bio_systems_tech': 'Bio-Systems Technology',
-  
-  // A/L Arts
-  'sinhala': 'Sinhala',
-  'history': 'History',
-  'geography': 'Geography',
-  'buddhism': 'Buddhism',
-  'english': 'English',
-  'tamil': 'Tamil',
-  'music': 'Music',
-  'art': 'Art',
-  'dancing': 'Dancing',
-  'drama': 'Drama',
-  
-  // O/L Subjects
-  'mathematics': 'Mathematics',
-  'science': 'Science',
-  'civics': 'Civics',
-  'ict': 'Information & Communication Technology',
-  'health': 'Health & Physical Education',
-  'commerce': 'Commerce',
-  
-  // Grade 5
-  'environment': 'Environment Related Activities'
+// Helper function to get the authorization header with the current Supabase JWT
+const getAuthHeaders = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error("Error getting Supabase session:", error);
+    throw new Error("Authentication session not found.");
+  }
+  if (!session || !session.access_token) {
+    throw new Error("No active session or access token found. User might not be logged in.");
+  }
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+  };
+};
+
+// Test authentication function - ADD THIS FOR DEBUGGING
+export const testAuth = async () => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    console.log('Current session:', session);
+    console.log('User:', session?.user);
+    console.log('Access token:', session?.access_token ? 'Present' : 'Missing');
+    if (session?.user) {
+      console.log('User role:', session.user.user_metadata?.role || 'No role set');
+      console.log('User email:', session.user.email);
+    }
+    return session;
+  } catch (error) {
+    console.error('Auth test failed:', error);
+    return null;
+  }
 };
 
 // Get Cloudinary signature from backend
@@ -51,6 +46,8 @@ export const getCloudinarySignature = async (metadata) => {
   try {
     console.log('📤 Requesting Cloudinary signature with metadata:', metadata);
     
+    const authHeaders = await getAuthHeaders();
+
     // Transform the data to match backend DTO field names (PascalCase)
     const backendMetadata = {
       Country: metadata.country,
@@ -63,7 +60,7 @@ export const getCloudinarySignature = async (metadata) => {
 
     console.log('🔄 Transformed for backend:', backendMetadata);
     
-    const response = await axios.post('http://localhost:5201/api/cloudinary/signature', backendMetadata);
+    const response = await axios.post(`${CLOUDINARY_API_URL}/signature`, backendMetadata, authHeaders);
     
     console.log('✅ Signature received:', response.data);
     return response.data;
@@ -73,7 +70,7 @@ export const getCloudinarySignature = async (metadata) => {
   }
 };
 
-// Upload file to Cloudinary
+// Upload file to Cloudinary (direct upload to Cloudinary does NOT need our backend JWT)
 export const uploadToCloudinary = async (file, signatureData, onProgress) => {
   const formData = new FormData();
   formData.append('file', file);
@@ -124,11 +121,11 @@ export const uploadWithProgress = async (file, metadata, onProgress) => {
   try {
     console.log('🚀 Starting Cloudinary upload process...');
     
-    // Get signature first
+    // Get signature first (this call now includes auth headers)
     const signatureData = await getCloudinarySignature(metadata);
     console.log('✅ Signature received:', signatureData);
     
-    // Upload to Cloudinary
+    // Upload to Cloudinary (this call does NOT need auth headers)
     const result = await uploadToCloudinary(file, signatureData, onProgress);
     
     console.log('✅ Cloudinary upload successful:', result);
@@ -167,12 +164,14 @@ export const uploadWithProgress = async (file, metadata, onProgress) => {
 // Save metadata after Cloudinary upload
 export const saveQuestionMetadata = async (metadataWithUrls) => {
   try {
+    const authHeaders = await getAuthHeaders();
+
     // Transform subject value to database name and ensure all fields match backend DTO
     const transformedData = {
       country: metadataWithUrls.country,
       examType: metadataWithUrls.examType,
       stream: metadataWithUrls.stream,
-      subject: subjectValueToName[metadataWithUrls.subject] || metadataWithUrls.subject,
+      subject: getSubjectName(metadataWithUrls.subject),
       paperType: metadataWithUrls.paperType,
       paperCategory: metadataWithUrls.paperCategory,
       year: metadataWithUrls.year,
@@ -189,11 +188,7 @@ export const saveQuestionMetadata = async (metadataWithUrls) => {
 
     console.log('📤 Sending to backend:', transformedData);
 
-    const response = await axios.post(API_BASE_URL + '/upload', transformedData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await axios.post(API_BASE_URL + '/upload', transformedData, authHeaders);
     
     console.log('✅ Metadata save successful:', response.data);
     return response.data;
@@ -212,10 +207,24 @@ export const saveQuestionMetadata = async (metadataWithUrls) => {
   }
 };
 
+// Search questions with filters - THIS IS THE KEY FUNCTION FOR PAPERBUILDER
+export const searchQuestions = async (params) => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(`${API_BASE_URL}?${params.toString()}`, authHeaders);
+    console.log('✅ Questions searched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Failed to search questions:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 // Get all subjects from backend
 export const getAllSubjects = async () => {
   try {
-    const response = await axios.get(API_BASE_URL + '/subjects');
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(API_BASE_URL + '/subjects', authHeaders);
     console.log('✅ Subjects fetched:', response.data);
     return response.data;
   } catch (error) {
@@ -227,7 +236,8 @@ export const getAllSubjects = async () => {
 // Get all schools from backend
 export const getAllSchools = async () => {
   try {
-    const response = await axios.get(API_BASE_URL + '/schools');
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(API_BASE_URL + '/schools', authHeaders);
     console.log('✅ Schools fetched:', response.data);
     return response.data;
   } catch (error) {
@@ -239,7 +249,8 @@ export const getAllSchools = async () => {
 // Test backend connection
 export const testBackendConnection = async () => {
   try {
-    const response = await axios.get(API_BASE_URL);
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(API_BASE_URL, authHeaders);
     console.log('✅ Backend test successful:', response.data);
     return response.data;
   } catch (error) {
@@ -260,7 +271,8 @@ export const testCloudinarySignature = async () => {
       paperCategory: 'PastPaper'
     };
     
-    const signature = await getCloudinarySignature(testData);
+    // This calls the getCloudinarySignature function, which now includes auth headers
+    const signature = await getCloudinarySignature(testData); 
     console.log('🎉 Cloudinary signature endpoint works!', signature);
     return signature;
   } catch (error) {
