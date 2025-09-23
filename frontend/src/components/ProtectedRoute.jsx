@@ -1,13 +1,12 @@
 // frontend/src/components/ProtectedRoute.jsx
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthProvider'; // Import useAuth hook
+import { useAuth } from '../context/AuthProvider';
 
 const ProtectedRoute = ({ allowedRoles }) => {
   const { user, isAdmin, isTeacher, loading } = useAuth();
 
   if (loading) {
-    // Optionally render a loading spinner or placeholder while auth state is being determined
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center space-y-4">
@@ -24,7 +23,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
   }
 
   if (!user) {
-    // If no user, redirect to a login page (we'll create this next)
+    // If not authenticated, redirect to login page
     return <Navigate to="/login" replace />;
   }
 
@@ -33,11 +32,11 @@ const ProtectedRoute = ({ allowedRoles }) => {
     (role === 'admin' && isAdmin) || (role === 'teacher' && isTeacher)
   );
 
-  if (user && hasRequiredRole) {
+  if (hasRequiredRole) {
     return <Outlet />; // Render child routes if authorized
   } else {
-    // If user is logged in but not authorized, redirect to home or an unauthorized page
-    return <Navigate to="/" replace />; // Or a specific /unauthorized page
+    // If user is logged in but not authorized, redirect to a specific unauthorized page
+    return <Navigate to="/unauthorized" replace />; // <-- CHANGED THIS LINE
   }
 };
 

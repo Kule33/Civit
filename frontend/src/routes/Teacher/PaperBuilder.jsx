@@ -9,10 +9,11 @@ import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import QuestionCard from '../../components/QuestionCard.jsx';
 import SelectedQuestionsSidebar from '../../components/SelectedQuestionsSidebar.jsx';
 import { useSubmission } from '../../context/SubmissionContext';
-import { useMetadata } from '../../hooks/useMetadata.js'; // Import the hook
-import { useAdvancedPaperGeneration } from '../../hooks/useAdvancedPaperGeneration.jsx'; // Import advanced PDF generation hook
-import { getSubjectName } from '../../utils/subjectMapping.js'; // Import subject mapping utility
-import axios from 'axios';
+import { useMetadata } from '../../hooks/useMetadata.js';
+import { useAdvancedPaperGeneration } from '../../hooks/useAdvancedPaperGeneration.jsx';
+import { getSubjectName } from '../../utils/subjectMapping.js';
+// Updated import to use the service function
+import { searchQuestions } from '../../services/questionService.js';
 
 const PaperBuilder = () => {
   // Core state management for questions and UI
@@ -53,24 +54,22 @@ const PaperBuilder = () => {
     availableOptions,
     updateMetadata,
     loading: metadataLoading,
-    resetMetadata // Assuming useMetadata provides a reset function
-  } = useMetadata(); // Initialize without filters, the hook should manage internal state
+    resetMetadata
+  } = useMetadata();
 
   const handleFilterChange = (field, value) => {
     updateMetadata(field, value);
   };
 
-
+  // Updated handleSearch function to use searchQuestions service
   const handleSearch = async () => {
     setLoading(true);
     setError('');
     try {
-      // Build query parameters from current metadata (which is `filters` internally in the hook)
+      // Build query parameters from current metadata
       const params = new URLSearchParams();
       Object.entries(metadata).forEach(([key, value]) => {
-        // Only append if the value is not empty, null, or undefined
         if (value !== '' && value !== null && value !== undefined) {
-          // Transform subject value to actual subject name for backend
           if (key === 'subject') {
             const subjectName = getSubjectName(value);
             params.append(key, subjectName);
@@ -80,11 +79,11 @@ const PaperBuilder = () => {
         }
       });
 
-      // Log the URL being hit for debugging
       console.log('Searching with URL:', `/api/questions?${params.toString()}`);
 
-      const response = await axios.get(`/api/questions?${params.toString()}`);
-      setQuestions(Array.isArray(response.data) ? response.data : []);
+      // Use searchQuestions instead of direct axios
+      const data = await searchQuestions(params);
+      setQuestions(Array.isArray(data) ? data : []);
       setSearchPerformed(true);
     } catch (error) {
       const errorMessage = error.response?.data?.title || error.message || 'Failed to fetch questions. Please try again.';
@@ -149,7 +148,7 @@ const PaperBuilder = () => {
    * Clears all filters and resets the component state
    */
   const handleClearFilters = () => {
-    resetMetadata(); // Use the reset function from the hook
+    resetMetadata();
     setQuestions([]);
     setSelectedQuestions([]);
     setSelectedQuestionsOrdered([]);
@@ -369,7 +368,7 @@ const PaperBuilder = () => {
               type="number"
               min="2000"
               max="2030"
-              value={metadata.year || ''} // Ensure it's a string for InputField
+              value={metadata.year || ''}
               onChange={(e) => handleFilterChange('year', e.target.value ? parseInt(e.target.value) : null)}
               placeholder="All Years"
             />

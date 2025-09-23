@@ -116,7 +116,7 @@ const Home = () => {
               Paper Master
             </h1>
             <p className="text-2xl text-blue-600 font-semibold mb-2">
-              by JV Graphics
+              by CVIT SOLUTIONS
             </p>
             <p className="text-xl text-gray-600">
               Professional Question Paper Creation & Typesetting Platform
@@ -154,7 +154,7 @@ const Home = () => {
               <div className="flex items-center space-x-3">
                 <Database size={24} />
                 <div className="text-left">
-                  <div>JV Graphics Admin</div>
+                  <div>CVIT Admin</div>
                   <div className="text-sm font-normal opacity-75">Manage Question Bank</div>
                 </div>
               </div>
@@ -306,7 +306,7 @@ const Home = () => {
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-8">
             <PenTool className="w-16 h-16 text-blue-300 mx-auto mb-4" />
-            <h2 className="text-4xl font-bold mb-4">Powered by JV Graphics</h2>
+            <h2 className="text-4xl font-bold mb-4">Powered by CVIT SOLUTIONS</h2>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto">
               Professional design and typesetting services ensure your question papers meet the highest academic standards
             </p>

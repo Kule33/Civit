@@ -274,3 +274,11 @@ D:\Civit\Civit\backend\obj\Debug\net8.0\refint\backend.dll
 D:\Civit\Civit\backend\obj\Debug\net8.0\backend.pdb
 D:\Civit\Civit\backend\obj\Debug\net8.0\backend.genruntimeconfig.cache
 D:\Civit\Civit\backend\obj\Debug\net8.0\ref\backend.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll

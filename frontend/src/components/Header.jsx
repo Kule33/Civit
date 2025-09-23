@@ -134,99 +134,89 @@ const Header = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-300 backdrop-blur-sm border border-gray-200/50"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {/* Mobile menu button - only show when authenticated */}
+          {user && (
+            <button
+              className="md:hidden p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-300 backdrop-blur-sm border border-gray-200/50"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Desktop Navigation */}
-      <div className="hidden md:block relative border-t border-gray-200/50">
-        <div className="absolute inset-0 bg-gray-50/60 backdrop-blur-sm"></div>
-        <div className="relative z-10 max-w-7xl mx-auto">
-          <nav className="flex items-center">
-            {navigationItems.map((item) => ( // Use filtered navigationItems
+      {/* Desktop Navigation - only when authenticated */}
+      {user && (
+        <div className="hidden md:block relative border-t border-gray-200/50">
+          <div className="absolute inset-0 bg-gray-50/60 backdrop-blur-sm"></div>
+          <div className="relative z-10 max-w-7xl mx-auto">
+            <nav className="flex items-center">
+              {navigationItems.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `relative flex items-center px-5 py-4 text-base font-semibold transition-all duration-500 group ${
+                      isActive
+                        ? 'text-blue-600'
+                        : 'text-gray-700 hover:text-blue-600'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <>
+                          <div className="absolute inset-0 bg-blue-50/80 rounded-2xl"></div>
+                          <div className="absolute inset-0 bg-blue-100/40 rounded-2xl blur-sm opacity-60"></div>
+                        </>
+                      )}
+
+                      <div className="absolute inset-0 bg-gray-100/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-sm group-hover:scale-105"></div>
+
+                      <div className="flex items-center space-x-3 relative z-10">
+                        <item.icon size={20} className="transition-all duration-500 group-hover:scale-110 group-hover:rotate-6" />
+                        <span>{item.name}</span>
+                      </div>
+
+                      <div className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 shadow-sm ${
+                        isActive ? 'w-full opacity-100' : 'w-0 group-hover:w-full opacity-80'
+                      }`}></div>
+
+                      {isActive && (
+                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm"></div>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Navigation Menu - only when authenticated */}
+      {user && (
+        <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-gray-200/50 transition-all duration-500 ${isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+          <nav className="px-6 py-4 space-y-2">
+            {navigationItems.map((item, index) => (
               <NavLink
                 key={item.name}
                 to={item.path}
                 className={({ isActive }) =>
-                  `relative flex items-center px-5 py-4 text-base font-semibold transition-all duration-500 group ${
+                  `flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
                     isActive
-                      ? 'text-blue-600'
-                      : 'text-gray-700 hover:text-blue-600'
+                      ? 'bg-blue-50/80 text-blue-600 font-semibold border border-blue-200/50'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50/80 font-medium'
                   }`
                 }
+                onClick={() => setIsMobileMenuOpen(false)}
               >
-                {({ isActive }) => (
-                  <>
-                    {/* Active indicator with subtle glow effect */}
-                    {isActive && (
-                      <>
-                        <div className="absolute inset-0 bg-blue-50/80 rounded-2xl"></div>
-                        <div className="absolute inset-0 bg-blue-100/40 rounded-2xl blur-sm opacity-60"></div>
-                      </>
-                    )}
-
-                    {/* Hover effect */}
-                    <div className="absolute inset-0 bg-gray-100/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-sm group-hover:scale-105"></div>
-
-                    <div className="flex items-center space-x-3 relative z-10">
-                      <item.icon size={20} className="transition-all duration-500 group-hover:scale-110 group-hover:rotate-6" />
-                      <span>{item.name}</span>
-                    </div>
-
-                    {/* Enhanced animated underline */}
-                    <div className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 shadow-sm ${
-                      isActive ? 'w-full opacity-100' : 'w-0 group-hover:w-full opacity-80'
-                    }`}></div>
-
-                    {/* Floating indicator for active */}
-                    {isActive && (
-                      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm"></div>
-                    )}
-                  </>
-                )}
+                <item.icon size={20} />
+                <span className="font-medium text-base">{item.name}</span>
               </NavLink>
             ))}
-          </nav>
-        </div>
-      </div>
-
-      {/* Mobile Navigation Menu */}
-      <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-gray-200/50 transition-all duration-500 ${isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-        <nav className="px-6 py-4 space-y-2">
-          {navigationItems.map((item, index) => ( // Use filtered navigationItems
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                  isActive
-                    ? 'bg-blue-50/80 text-blue-600 font-semibold border border-blue-200/50'
-                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50/80 font-medium'
-                }`
-              }
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <item.icon size={20} />
-              <span className="font-medium text-base">{item.name}</span>
-            </NavLink>
-          ))}
-          {/* Mobile Login/Logout button */}
-          {!user ? (
-            <NavLink
-              to="/login"
-              className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 text-white bg-blue-600 hover:bg-blue-700 font-semibold"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <LogIn className="h-5 w-5" />
-              Sign In
-            </NavLink>
-          ) : (
             <button
               onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
               className="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 text-white bg-red-600 hover:bg-red-700 font-semibold w-full"
@@ -234,9 +224,9 @@ const Header = () => {
               <LogOut className="h-5 w-5" />
               Logout
             </button>
-          )}
-        </nav>
-      </div>
+          </nav>
+        </div>
+      )}
 
       {/* CSS Animations */}
       <style jsx="true">{`

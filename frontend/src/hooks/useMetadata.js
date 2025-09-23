@@ -21,7 +21,7 @@ export const useMetadata = (initialMetadata = {}) => {
     streams: [],
     subjects: [],
     paperTypes: [],
-    schools: [] // Added schools list
+    schools: []
   });
 
   const [loading, setLoading] = useState(false);
@@ -154,12 +154,22 @@ export const useMetadata = (initialMetadata = {}) => {
       setAvailableOptions(prev => ({
         ...prev,
         backendSubjects: subjects,
-        backendSchools: schools
+        backendSchools: schools,
+        schools: schools // Also set the schools array for compatibility
       }));
     } catch (error) {
       console.error('Failed to load backend data:', error);
+      // Don't throw the error, just log it so the component can still work
+      // with static options even if backend data fails to load
+      setAvailableOptions(prev => ({
+        ...prev,
+        backendSubjects: [],
+        backendSchools: [],
+        schools: []
+      }));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Refresh only schools (e.g., after creating a new school)
@@ -168,7 +178,8 @@ export const useMetadata = (initialMetadata = {}) => {
       const schools = await getAllSchools();
       setAvailableOptions(prev => ({
         ...prev,
-        backendSchools: schools
+        backendSchools: schools,
+        schools: schools
       }));
     } catch (error) {
       console.error('Failed to refresh schools:', error);
@@ -212,7 +223,7 @@ export const useMetadata = (initialMetadata = {}) => {
     }
 
     setAvailableOptions(prev => ({ ...prev, ...newAvailableOptions }));
-  }, [metadata.country, metadata.examType, metadata.stream, metadata.subject]);
+  }, [metadata.country, metadata.examType, metadata.stream, metadata.subject, availableOptions.backendSchools]);
 
   const updateMetadata = (field, value) => {
     setMetadata(prev => {
