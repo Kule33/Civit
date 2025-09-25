@@ -92,11 +92,11 @@ export function QuestionSearch({ searchQuery, onQuestionSelect, selectedQuestion
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {filteredQuestions.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">No questions found matching your search criteria.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3">
           {filteredQuestions.map((question) => (
             <Card
               key={question.id}
@@ -109,14 +109,20 @@ export function QuestionSearch({ searchQuery, onQuestionSelect, selectedQuestion
               }}
             >
               <CardContent className="p-4">
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-4">
                   <GripVertical className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
+                  
+                  {/* Question Image */}
+                  <div className="flex-shrink-0">
                     <img
                       src={question.imageUrl || "/placeholder.svg"}
                       alt={question.title}
-                      className="w-full h-32 object-cover rounded-md mb-3"
+                      className="w-20 h-20 object-cover rounded-md"
                     />
+                  </div>
+                  
+                  {/* Question Content */}
+                  <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-sm mb-2 line-clamp-2 text-foreground">{question.title}</h3>
                     <div className="flex items-center gap-2 mb-3">
                       <Badge variant="secondary" className="text-xs">
@@ -133,11 +139,15 @@ export function QuestionSearch({ searchQuery, onQuestionSelect, selectedQuestion
                         </Badge>
                       ))}
                     </div>
+                  </div>
+                  
+                  {/* Action Button */}
+                  <div className="flex-shrink-0">
                     <Button
                       size="sm"
                       onClick={() => onQuestionSelect(question)}
                       disabled={isSelected(question.id)}
-                      className="w-full"
+                      className="w-32"
                     >
                       <Plus className="h-3 w-3 mr-1" />
                       {isSelected(question.id) ? "Added" : "Add to Paper"}

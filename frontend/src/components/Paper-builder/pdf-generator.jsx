@@ -147,6 +147,23 @@ export function PDFGenerator({ questions, disabled = false }) {
           }
         }
 
+        // Add comment if available
+        if (question.comment && question.comment.trim()) {
+          currentY += 5
+          pdf.setFontSize(Math.max(settings.fontSize - 1, 9))
+          pdf.setFont("helvetica", "bold")
+          pdf.setTextColor(0, 100, 200) // Blue color for comments
+          pdf.text("Teacher's Comment:", margin + 12, currentY)
+          currentY += 6
+          
+          // Split comment into multiple lines if too long
+          const commentLines = pdf.splitTextToSize(question.comment, contentWidth - 24)
+          pdf.setFont("helvetica", "normal")
+          pdf.setTextColor(0, 0, 0) // Reset to black
+          pdf.text(commentLines, margin + 12, currentY)
+          currentY += commentLines.length * 4 + 8
+        }
+
         // Add answer space if enabled
         if (settings.includeAnswerSpace) {
           currentY += 5

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Download, ChevronUp, ChevronDown, Menu } from 'lucide-react';
+import { Search, Filter, Download, ChevronUp, ChevronDown, Menu, FileText, GripVertical, MessageSquare } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -25,6 +25,8 @@ const PaperBuilder = () => {
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [isFiltersMinimized, setIsFiltersMinimized] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isViewingSelectedQuestions, setIsViewingSelectedQuestions] = useState(false);
+  const [questionComments, setQuestionComments] = useState({});
 
   const { showOverlay } = useSubmission();
   
@@ -173,8 +175,14 @@ const PaperBuilder = () => {
     }
 
     try {
+      // Add comments to questions before generating PDF
+      const questionsWithComments = orderedQuestions.map(q => ({
+        ...q,
+        comment: questionComments[q.id] || ''
+      }));
+
       await generatePDF(
-        orderedQuestions,
+        questionsWithComments,
         // Success callback
         (filename, questionCount) => {
           showOverlay({
@@ -239,6 +247,70 @@ const PaperBuilder = () => {
    */
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  /**
+   * Handles viewing selected questions (collapses search results)
+   */
+  const handleViewSelectedQuestions = () => {
+    setIsViewingSelectedQuestions(true);
+  };
+
+  /**
+   * Handles going back to search results
+   */
+  const handleBackToSearch = () => {
+    setIsViewingSelectedQuestions(false);
+  };
+
+  /**
+   * Handles updating comment for a specific question
+   * @param {string|number} questionId - ID of the question
+   * @param {string} comment - Comment text
+   */
+  const handleCommentChange = (questionId, comment) => {
+    setQuestionComments(prev => ({
+      ...prev,
+      [questionId]: comment
+    }));
+  };
+
+  /**
+   * Handles moving a question up in the order
+   * @param {number} index - Current index of the question
+   */
+  const handleMoveQuestionUp = (index) => {
+    if (index > 0) {
+      const newOrderedQuestions = [...selectedQuestionsOrdered];
+      [newOrderedQuestions[index - 1], newOrderedQuestions[index]] = [newOrderedQuestions[index], newOrderedQuestions[index - 1]];
+      setSelectedQuestionsOrdered(newOrderedQuestions);
+    }
+  };
+
+  /**
+   * Handles moving a question down in the order
+   * @param {number} index - Current index of the question
+   */
+  const handleMoveQuestionDown = (index) => {
+    if (index < selectedQuestionsOrdered.length - 1) {
+      const newOrderedQuestions = [...selectedQuestionsOrdered];
+      [newOrderedQuestions[index], newOrderedQuestions[index + 1]] = [newOrderedQuestions[index + 1], newOrderedQuestions[index]];
+      setSelectedQuestionsOrdered(newOrderedQuestions);
+    }
+  };
+
+  /**
+   * Handles drag and drop reordering
+   * @param {number} draggedIndex - Index of the dragged item
+   * @param {number} dropIndex - Index where the item is dropped
+   */
+  const handleDragReorder = (draggedIndex, dropIndex) => {
+    if (draggedIndex !== dropIndex) {
+      const newOrderedQuestions = [...selectedQuestionsOrdered];
+      const [draggedQuestion] = newOrderedQuestions.splice(draggedIndex, 1);
+      newOrderedQuestions.splice(dropIndex, 0, draggedQuestion);
+      setSelectedQuestionsOrdered(newOrderedQuestions);
+    }
   };
 
   return (
@@ -422,69 +494,213 @@ const PaperBuilder = () => {
         {/* Results Panel */}
         <div className="flex-1 overflow-hidden">
           <Card className="h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6 p-6 pb-0">
-              <h2 className="text-lg font-semibold">Search Results</h2>
-
-              {searchPerformed && questions.length > 0 && (
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-600">
-                    {getFilteredQuestionsCount()} questions found • {getSelectedQuestionsCount()} selected
-                  </span>
+            {isViewingSelectedQuestions ? (
+              /* Selected Questions View */
+              <>
+                <div className="flex justify-between items-center mb-6 p-6 pb-0">
+                  <h2 className="text-lg font-semibold">Selected Questions ({selectedQuestionsOrdered.length})</h2>
                   <Button
-                    variant="primary"
-                    onClick={handleSelectAll}
-                    size="small"
+                    variant="outline"
+                    onClick={handleBackToSearch}
+                    icon={Search}
                   >
-                    {selectedQuestions.length === questions.length ? 'Deselect All' : 'Select All'}
+                    Back to Search
                   </Button>
                 </div>
-              )}
-            </div>
+                <div className="flex-1 overflow-y-auto p-6 pt-0">
+                  {selectedQuestionsOrdered.length === 0 ? (
+                    <div className="text-center py-12">
+                      <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Questions Selected</h3>
+                      <p className="text-gray-600">
+                        Go back to search and select some questions to build your paper.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {selectedQuestionsOrdered.map((question, index) => (
+                        <div 
+                          key={question.id} 
+                          className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', index.toString());
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                            handleDragReorder(draggedIndex, index);
+                          }}
+                        >
+                          <div className="flex items-start gap-4">
+                            {/* Drag handle and question number */}
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="bg-gray-100 p-1 rounded cursor-move">
+                                <GripVertical className="h-4 w-4 text-gray-500" />
+                              </div>
+                              <div className="bg-blue-500 text-white text-sm font-bold rounded-full h-8 w-8 flex items-center justify-center flex-shrink-0">
+                                {index + 1}
+                              </div>
+                            </div>
+                            
+                            {/* Question image */}
+                            <div className="flex-shrink-0">
+                              <img
+                                src={question.fileUrl || "/placeholder.svg"}
+                                alt={question.subject?.name || 'Question'}
+                                className="w-20 h-20 object-cover rounded-md"
+                              />
+                            </div>
+                            
+                            {/* Question content */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-sm text-gray-900 mb-2">
+                                {question.subject?.name || 'Unknown Subject'}
+                              </h3>
+                              <div className="flex flex-wrap gap-1 text-xs text-gray-600 mb-3">
+                                {question.country && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                    {question.country}
+                                  </span>
+                                )}
+                                {question.examType && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                    {question.examType}
+                                  </span>
+                                )}
+                                {question.paperCategory && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                    {question.paperCategory}
+                                  </span>
+                                )}
+                                {question.year && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                    {question.year}
+                                  </span>
+                                )}
+                                {question.term && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                    {question.term}
+                                  </span>
+                                )}
+                              </div>
 
-            {/* Error display */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 mx-6">
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
+                              {/* Comment section */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-500" />
+                                  <label className="text-xs font-medium text-gray-700">Add Comment:</label>
+                                </div>
+                                <textarea
+                                  value={questionComments[question.id] || ''}
+                                  onChange={(e) => handleCommentChange(question.id, e.target.value)}
+                                  placeholder="Add your comment for this question..."
+                                  className="w-full text-xs p-2 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  rows={2}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Reorder buttons */}
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => handleMoveQuestionUp(index)}
+                                disabled={index === 0}
+                                className="p-1 h-6 w-6 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                title="Move up"
+                              >
+                                <ChevronUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => handleMoveQuestionDown(index)}
+                                disabled={index === selectedQuestionsOrdered.length - 1}
+                                className="p-1 h-6 w-6 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                title="Move down"
+                              >
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Search Results View */
+              <>
+                <div className="flex justify-between items-center mb-6 p-6 pb-0">
+                  <h2 className="text-lg font-semibold">Search Results</h2>
+
+                  {searchPerformed && questions.length > 0 && (
+                    <div className="flex items-center space-x-4">
+                      <span className="text-sm text-gray-600">
+                        {getFilteredQuestionsCount()} questions found • {getSelectedQuestionsCount()} selected
+                      </span>
+                      <Button
+                        variant="primary"
+                        onClick={handleSelectAll}
+                        size="small"
+                      >
+                        {selectedQuestions.length === questions.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Error display */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 mx-6">
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Scrollable content area */}
+                <div className="flex-1 overflow-y-auto p-6 pt-0">
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                      <p className="text-gray-600 mt-2">Searching for questions...</p>
+                    </div>
+                  ) : searchPerformed && questions.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600">No questions found matching your criteria.</p>
+                      <p className="text-sm text-gray-500 mt-1">Try adjusting your filters or search terms.</p>
+                    </div>
+                  ) : questions.length > 0 ? (
+                    <div className="space-y-3">
+                      {memoizedQuestionCards}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Start Searching</h3>
+                      <p className="text-gray-600">
+                        Use the filters above to search for questions and build your custom paper.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-
-            {/* Scrollable content area */}
-            <div className="flex-1 overflow-y-auto p-6 pt-0">
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="text-gray-600 mt-2">Searching for questions...</p>
-                </div>
-              ) : searchPerformed && questions.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">No questions found matching your criteria.</p>
-                  <p className="text-sm text-gray-500 mt-1">Try adjusting your filters or search terms.</p>
-                </div>
-              ) : questions.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {memoizedQuestionCards}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Start Searching</h3>
-                  <p className="text-gray-600">
-                    Use the filters above to search for questions and build your custom paper.
-                  </p>
-                </div>
-              )}
-            </div>
           </Card>
         </div>
 
         {/* Selected Questions Sidebar */}
-        <div className={`hidden lg:block ${isSidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'}`}>
+        <div className={`hidden lg:block ${isSidebarCollapsed ? 'w-0 overflow-hidden' : 'w-96'}`}>
           <SelectedQuestionsSidebar
             selectedQuestionsOrdered={selectedQuestionsOrdered}
             setSelectedQuestionsOrdered={setSelectedQuestionsOrdered}
             onDownloadPaper={handleDownloadPaper}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={handleToggleSidebar}
+            onViewSelectedQuestions={handleViewSelectedQuestions}
+            questionComments={questionComments}
+            onCommentChange={handleCommentChange}
           />
         </div>
 
@@ -492,13 +708,16 @@ const PaperBuilder = () => {
         {!isSidebarCollapsed && (
           <div className="lg:hidden fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black bg-opacity-50" onClick={handleToggleSidebar}></div>
-            <div className="w-80 bg-white">
+            <div className="w-96 bg-white">
               <SelectedQuestionsSidebar
                 selectedQuestionsOrdered={selectedQuestionsOrdered}
                 setSelectedQuestionsOrdered={setSelectedQuestionsOrdered}
                 onDownloadPaper={handleDownloadPaper}
                 isCollapsed={false}
                 onToggleCollapse={handleToggleSidebar}
+                onViewSelectedQuestions={handleViewSelectedQuestions}
+                questionComments={questionComments}
+                onCommentChange={handleCommentChange}
               />
             </div>
           </div>
