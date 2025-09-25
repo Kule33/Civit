@@ -64,7 +64,7 @@ const QuestionCard = ({
 
   // Get the appropriate height for the image preview based on variant
   const getImageHeight = () => {
-    return variant === 'sidebar' ? 'h-24' : 'h-40';
+    return variant === 'sidebar' ? 'h-24' : 'h-20';
   };
 
   // Get the appropriate padding for the content based on variant
@@ -100,31 +100,29 @@ const QuestionCard = ({
       )}
 
       {/* Image preview section */}
-      {isImage ? (
-        <div className={`${getImageHeight()} bg-gray-50 overflow-hidden`}>
-          <img 
-            src={question.fileUrl} 
-            alt={question.subject?.name || 'Question'} 
-            className="w-full h-full object-cover" 
-          />
-        </div>
-      ) : (
-        <div className={`${getImageHeight()} bg-gray-50 flex items-center justify-center text-gray-400 text-sm`}>
-          {variant === 'sidebar' ? 'No Image' : 'No Image Preview'}
-        </div>
-      )}
-
-      {/* Content section */}
-      <div className={getContentPadding()}>
-        <div className="flex items-start justify-between">
-          <div className="flex-1 pr-2">
-            {/* Subject name */}
-            <h3 className={`font-semibold text-gray-900 mb-2 ${
-              variant === 'sidebar' ? 'text-xs' : 'text-sm'
-            }`}>
+      {variant === 'grid' ? (
+        <div className="flex items-start gap-4">
+          {/* Question Image */}
+          <div className="flex-shrink-0">
+            {isImage ? (
+              <img 
+                src={question.fileUrl} 
+                alt={question.subject?.name || 'Question'} 
+                className="w-20 h-20 object-cover rounded-md" 
+              />
+            ) : (
+              <div className="w-20 h-20 bg-gray-50 flex items-center justify-center text-gray-400 text-xs rounded-md">
+                No Image
+              </div>
+            )}
+          </div>
+          
+          {/* Question Content */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2">
               {question.subject?.name || 'Unknown Subject'}
             </h3>
-
+            
             {/* Metadata tags */}
             <div className={`flex flex-wrap gap-1 text-gray-600 mb-2 ${getMetadataTextSize()}`}>
               {question.country && (
@@ -169,8 +167,8 @@ const QuestionCard = ({
               )}
             </div>
 
-            {/* File link for non-sidebar variant */}
-            {variant !== 'sidebar' && question.fileUrl && (
+            {/* File link */}
+            {question.fileUrl && (
               <a 
                 href={question.fileUrl} 
                 target="_blank" 
@@ -181,9 +179,92 @@ const QuestionCard = ({
               </a>
             )}
           </div>
+          
+          {/* Action Button */}
+          <div className="flex-shrink-0">
+            <Button
+              variant={isSelected ? "secondary" : "outline"}
+              size="small"
+              onClick={() => onSelect?.(question.id)}
+              className="w-32"
+            >
+              {isSelected ? 'Selected' : 'Select'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {isImage ? (
+            <div className={`${getImageHeight()} bg-gray-50 overflow-hidden`}>
+              <img 
+                src={question.fileUrl} 
+                alt={question.subject?.name || 'Question'} 
+                className="w-full h-full object-cover" 
+              />
+            </div>
+          ) : (
+            <div className={`${getImageHeight()} bg-gray-50 flex items-center justify-center text-gray-400 text-sm`}>
+              No Image
+            </div>
+          )}
+        </>
+      )}
 
-          {/* Action buttons */}
-          <div className="flex flex-col gap-1">
+      {/* Content section for sidebar variant */}
+      {variant === 'sidebar' && (
+        <div className={getContentPadding()}>
+          <div className="flex items-start justify-between">
+            <div className="flex-1 pr-2">
+              {/* Subject name */}
+              <h3 className="text-xs font-semibold text-gray-900 mb-2">
+                {question.subject?.name || 'Unknown Subject'}
+              </h3>
+
+              {/* Metadata tags */}
+              <div className={`flex flex-wrap gap-1 text-gray-600 mb-2 ${getMetadataTextSize()}`}>
+                {question.country && (
+                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    {question.country}
+                  </span>
+                )}
+                {question.examType && (
+                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    {question.examType}
+                  </span>
+                )}
+                {question.paperCategory && (
+                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    {question.paperCategory}
+                  </span>
+                )}
+                {question.paperType && (
+                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    {question.paperType}
+                  </span>
+                )}
+                {question.year && (
+                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    {question.year}
+                  </span>
+                )}
+                {question.term && (
+                  <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    {question.term}
+                  </span>
+                )}
+              </div>
+
+              {/* Additional details */}
+              <div className={`text-gray-700 space-y-1 ${getDetailsTextSize()}`}>
+                {question.school?.name && (
+                  <p>School: {question.school.name}</p>
+                )}
+                {question.uploader && (
+                  <p>By: {question.uploader}</p>
+                )}
+              </div>
+            </div>
+
             {/* Remove button for sidebar */}
             {showRemoveButton && (
               <Button
@@ -196,20 +277,9 @@ const QuestionCard = ({
                 <X className="h-3 w-3" />
               </Button>
             )}
-
-            {/* Select/Deselect button for grid */}
-            {variant === 'grid' && (
-              <Button
-                variant={isSelected ? "secondary" : "outline"}
-                size="small"
-                onClick={() => onSelect?.(question.id)}
-              >
-                {isSelected ? 'Selected' : 'Select'}
-              </Button>
-            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -101,6 +101,25 @@ export const useAdvancedPaperGeneration = () => {
       fontSize: 8,
       color: '#9ca3af',
     },
+    commentContainer: {
+      marginTop: 10,
+      marginBottom: 10,
+      padding: 8,
+      backgroundColor: '#f0f9ff',
+      border: '1 solid #0ea5e9',
+      borderRadius: 4,
+    },
+    commentLabel: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: '#0ea5e9',
+      marginBottom: 4,
+    },
+    commentText: {
+      fontSize: 10,
+      color: '#1e40af',
+      lineHeight: 1.4,
+    },
   });
 
   /**
@@ -198,6 +217,14 @@ export const useAdvancedPaperGeneration = () => {
                       No file attached
                     </Text>
                   </View>
+                </View>
+              )}
+
+              {/* Teacher's Comment */}
+              {question.comment && question.comment.trim() && (
+                <View style={styles.commentContainer}>
+                  <Text style={styles.commentLabel}>Teacher's Comment:</Text>
+                  <Text style={styles.commentText}>{question.comment}</Text>
                 </View>
               )}
 
