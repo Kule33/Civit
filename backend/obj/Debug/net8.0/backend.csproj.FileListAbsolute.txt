@@ -284,3 +284,13 @@ D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
 D:\JV\Civit\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 D:\JV\Civit\backend\bin\Debug\net8.0\DotNetEnv.dll
 D:\JV\Civit\backend\bin\Debug\net8.0\Sprache.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\DotNetEnv.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Sprache.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
