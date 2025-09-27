@@ -9,6 +9,7 @@ import InputField from '../../components/ui/InputField.jsx';
 import { useMetadata } from '../../hooks/useMetadata.js';
 import { searchQuestions } from '../../services/questionService.js';
 import { useSubmission } from '../../context/SubmissionContext';
+import axios from 'axios';
 
 const AdminManageQuestions = () => {
   // Core state management for questions and UI
@@ -37,6 +38,29 @@ const AdminManageQuestions = () => {
   const handleFilterChange = (field, value) => {
     updateMetadata(field, value);
   };
+
+  // Initial load effect to fetch all questions
+  useEffect(() => {
+    const fetchInitialQuestions = async () => {
+      if (!searchPerformed) {
+        setLoading(true);
+        try {
+          // Fetch all questions on initial load
+          const params = new URLSearchParams();
+          const response = await searchQuestions(params);
+          setQuestions(Array.isArray(response) ? response : []);
+        } catch (error) {
+          console.error('Failed to fetch initial questions:', error);
+          // Don't show error overlay on initial load, just keep empty state
+          setQuestions([]);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchInitialQuestions();
+  }, []);
 
   // Search function using the same API as PaperBuilder
   const handleSearch = async () => {
@@ -132,13 +156,69 @@ const AdminManageQuestions = () => {
     }));
   };
 
+  const handleDeleteQuestion = async (questionId) => {
+    if (!window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Call backend API to delete question
+      await axios.delete(`http://localhost:5201/api/questions/${questionId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      showOverlay({
+        status: 'success',
+        message: 'Question deleted successfully!',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+      
+      // Remove question from local state
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      setSelectedQuestions(prev => prev.filter(id => id !== questionId));
+      
+    } catch (error) {
+      console.error('Failed to delete question:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.title || 'Failed to delete question. Please try again.';
+      showOverlay({
+        status: 'error',
+        message: errorMessage,
+        autoClose: true,
+        autoCloseDelay: 5000
+      });
+    }
+  };
+
   const handleSaveEdit = async () => {
     setIsSavingEdit(true);
     try {
-      // Here you would typically call an API to update the question
-      // await updateQuestion(editingQuestion.id, editFormData);
+      // Prepare data for backend API
+      const updateData = {
+        id: editingQuestion.id,
+        title: editFormData.title,
+        country: editFormData.country,
+        examType: editFormData.examType,
+        stream: editFormData.stream,
+        subject: editFormData.subject,
+        paperType: editFormData.paperType,
+        paperCategory: editFormData.paperCategory,
+        year: editFormData.year ? parseInt(editFormData.year) : null,
+        term: editFormData.term,
+        schoolName: editFormData.schoolName,
+        uploader: editFormData.uploader,
+        status: editFormData.status
+      };
+
+      // Call backend API to update question
+      const response = await axios.put(`http://localhost:5201/api/questions/${editingQuestion.id}`, updateData, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       
-      // For now, just show success message
       showOverlay({
         status: 'success',
         message: 'Question updated successfully!',
@@ -146,18 +226,20 @@ const AdminManageQuestions = () => {
         autoCloseDelay: 3000
       });
       
-      // Update local data if using mock data
+      // Update local data with the response
       setQuestions(prev => prev.map(q => 
         q.id === editingQuestion.id 
-          ? { ...q, ...editFormData }
+          ? { ...q, ...response.data }
           : q
       ));
       
       handleCloseEditModal();
     } catch (error) {
+      console.error('Failed to update question:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.title || 'Failed to update question. Please try again.';
       showOverlay({
         status: 'error',
-        message: 'Failed to update question. Please try again.',
+        message: errorMessage,
         autoClose: true,
         autoCloseDelay: 5000
       });
@@ -166,15 +248,7 @@ const AdminManageQuestions = () => {
     }
   };
 
-  // Mock questions for fallback when no search is performed
-  const mockQuestions = [
-    { id: 1, title: 'Algebra Problem Set', subject: 'Mathematics', paperCategory: 'Model', country: 'sri_lanka', examType: 'a_level', stream: 'physical', date: '2024-01-15', uploader: 'John Doe' },
-    { id: 2, title: 'Chemical Reactions', subject: 'Science', paperCategory: 'PastPaper', country: 'sri_lanka', examType: 'o_level', date: '2024-01-14', uploader: 'Jane Smith' },
-    { id: 3, title: 'World History Quiz', subject: 'History', paperCategory: 'TermTest', country: 'sri_lanka', examType: 'a_level', stream: 'arts', date: '2024-01-13', uploader: 'Mike Johnson' },
-    { id: 4, title: 'Literature Analysis', subject: 'English', paperCategory: 'Model', country: 'sri_lanka', examType: 'a_level', stream: 'arts', date: '2024-01-12', uploader: 'Sarah Wilson' },
-  ];
-
-  const displayQuestions = searchPerformed ? questions : mockQuestions;
+  const displayQuestions = questions;
 
   return (
     <div className="space-y-6 pb-6">
@@ -448,7 +522,11 @@ const AdminManageQuestions = () => {
                         >
                           <Edit size={16} />
                         </button>
-                        <button className="text-red-600 hover:text-red-800 p-1" title="Delete">
+                        <button 
+                          className="text-red-600 hover:text-red-800 p-1" 
+                          title="Delete"
+                          onClick={() => handleDeleteQuestion(question.id)}
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
