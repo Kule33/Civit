@@ -23,6 +23,7 @@ const AdminManageQuestions = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [imagePreviewModal, setImagePreviewModal] = useState({ isOpen: false, imageUrl: '', title: '' });
   
   const { showOverlay } = useSubmission();
 
@@ -192,6 +193,43 @@ const AdminManageQuestions = () => {
     }
   };
 
+  const handleViewQuestion = (question) => {
+    if (question.fileUrl) {
+      setImagePreviewModal({
+        isOpen: true,
+        imageUrl: question.fileUrl,
+        title: question.title || `Question #${question.id}` || 'Question Preview'
+      });
+    } else {
+      showOverlay({
+        status: 'error',
+        message: 'No image available for this question.',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    }
+  };
+
+  const closeImagePreview = () => {
+    setImagePreviewModal({ isOpen: false, imageUrl: '', title: '' });
+  };
+
+  // Handle keyboard events for image preview modal
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && imagePreviewModal.isOpen) {
+        closeImagePreview();
+      }
+    };
+
+    if (imagePreviewModal.isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [imagePreviewModal.isOpen]);
+
   const handleSaveEdit = async () => {
     setIsSavingEdit(true);
     try {
@@ -344,7 +382,7 @@ const AdminManageQuestions = () => {
             />
 
             {/* Paper Type for Science Subjects */}
-            {['physics', 'chemistry', 'biology'].includes(metadata.subject) && (
+            {['Physics', 'Chemistry', 'Biology'].includes(metadata.subject) && (
               <SelectField
                 label="Paper Type"
                 value={metadata.paperType}
@@ -512,7 +550,11 @@ const AdminManageQuestions = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end space-x-2">
-                        <button className="text-blue-600 hover:text-blue-800 p-1" title="View">
+                        <button 
+                          className="text-blue-600 hover:text-blue-800 p-1" 
+                          title="View"
+                          onClick={() => handleViewQuestion(question)}
+                        >
                           <Eye size={16} />
                         </button>
                         <button 
@@ -538,6 +580,73 @@ const AdminManageQuestions = () => {
           </div>
         )}
       </Card>
+
+      {/* Image Preview Modal */}
+      {imagePreviewModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            {/* Close Button */}
+            <button
+              onClick={closeImagePreview}
+              className="absolute top-2 right-2 z-10 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-colors"
+            >
+              <X size={24} />
+            </button>
+            
+            {/* Modal Content */}
+            <div className="bg-white rounded-lg shadow-xl max-h-full overflow-hidden">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                  {imagePreviewModal.title}
+                </h3>
+              </div>
+              
+              {/* Image Container */}
+              <div className="p-4 flex justify-center items-center bg-gray-50">
+                <div className="max-w-full max-h-[70vh] overflow-auto">
+                  <img
+                    src={imagePreviewModal.imageUrl}
+                    alt={imagePreviewModal.title}
+                    className="max-w-full h-auto shadow-lg rounded"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  {/* Error Fallback */}
+                  <div 
+                    className="hidden flex-col items-center justify-center p-8 text-gray-500"
+                    style={{ minHeight: '200px' }}
+                  >
+                    <Eye size={48} className="mb-4 text-gray-300" />
+                    <p className="text-center">
+                      Unable to load image.<br />
+                      The image may be corrupted or the URL may be invalid.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <Button
+                  variant="secondary"
+                  onClick={closeImagePreview}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => window.open(imagePreviewModal.imageUrl, '_blank')}
+                >
+                  Open in New Tab
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {isEditModalOpen && editingQuestion && (

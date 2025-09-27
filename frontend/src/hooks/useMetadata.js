@@ -56,62 +56,62 @@ export const useMetadata = (initialMetadata = {}) => {
     
     subjects: {
       physical: [
-        { value: 'pure_maths', label: 'Pure Mathematics' },
-        { value: 'applied_maths', label: 'Applied Mathematics' },
-        { value: 'physics', label: 'Physics' },
-        { value: 'chemistry', label: 'Chemistry' }
+        { value: 'Pure Mathematics', label: 'Pure Mathematics' },
+        { value: 'Applied Mathematics', label: 'Applied Mathematics' },
+        { value: 'Physics', label: 'Physics' },
+        { value: 'Chemistry', label: 'Chemistry' }
       ],
       biological: [
-        { value: 'biology', label: 'Biology' },
-        { value: 'physics', label: 'Physics' },
-        { value: 'chemistry', label: 'Chemistry' }
+        { value: 'Biology', label: 'Biology' },
+        { value: 'Physics', label: 'Physics' },
+        { value: 'Chemistry', label: 'Chemistry' }
       ],
       commerce: [
-        { value: 'business_studies', label: 'Business Studies' },
-        { value: 'accounting', label: 'Accounting' },
-        { value: 'economics', label: 'Economics' }
+        { value: 'Business Studies', label: 'Business Studies' },
+        { value: 'Accounting', label: 'Accounting' },
+        { value: 'Economics', label: 'Economics' }
       ],
       technology: [
-        { value: 'engineering_tech', label: 'Engineering Technology' },
-        { value: 'bio_systems_tech', label: 'Bio-Systems Technology' }
+        { value: 'Engineering Technology', label: 'Engineering Technology' },
+        { value: 'Bio-Systems Technology', label: 'Bio-Systems Technology' }
       ],
       arts: [
-        { value: 'sinhala', label: 'Sinhala' },
-        { value: 'history', label: 'History' },
-        { value: 'geography', label: 'Geography' },
-        { value: 'buddhism', label: 'Buddhism' },
-        { value: 'english', label: 'English' },
-        { value: 'tamil', label: 'Tamil' },
-        { value: 'music', label: 'Music' },
-        { value: 'art', label: 'Art' },
-        { value: 'dancing', label: 'Dancing' },
-        { value: 'drama', label: 'Drama' }
+        { value: 'Sinhala', label: 'Sinhala' },
+        { value: 'History', label: 'History' },
+        { value: 'Geography', label: 'Geography' },
+        { value: 'Buddhism', label: 'Buddhism' },
+        { value: 'English', label: 'English' },
+        { value: 'Tamil', label: 'Tamil' },
+        { value: 'Music', label: 'Music' },
+        { value: 'Art', label: 'Art' },
+        { value: 'Dancing', label: 'Dancing' },
+        { value: 'Drama', label: 'Drama' }
       ],
       o_level: [
-        { value: 'mathematics', label: 'Mathematics' },
-        { value: 'science', label: 'Science' },
-        { value: 'sinhala', label: 'Sinhala' },
-        { value: 'english', label: 'English' },
-        { value: 'history', label: 'History' },
-        { value: 'geography', label: 'Geography' },
-        { value: 'civics', label: 'Civics' },
-        { value: 'buddhism', label: 'Buddhism' },
-        { value: 'tamil', label: 'Tamil' },
-        { value: 'ict', label: 'Information & Communication Technology' },
-        { value: 'health', label: 'Health & Physical Education' },
-        { value: 'commerce', label: 'Commerce' },
-        { value: 'accounting', label: 'Accounting' },
-        { value: 'art', label: 'Art' },
-        { value: 'music', label: 'Music' },
-        { value: 'dancing', label: 'Dancing' },
-        { value: 'drama', label: 'Drama' }
+        { value: 'Mathematics', label: 'Mathematics' },
+        { value: 'Science', label: 'Science' },
+        { value: 'Sinhala', label: 'Sinhala' },
+        { value: 'English', label: 'English' },
+        { value: 'History', label: 'History' },
+        { value: 'Geography', label: 'Geography' },
+        { value: 'Civics', label: 'Civics' },
+        { value: 'Buddhism', label: 'Buddhism' },
+        { value: 'Tamil', label: 'Tamil' },
+        { value: 'Information & Communication Technology', label: 'Information & Communication Technology' },
+        { value: 'Health & Physical Education', label: 'Health & Physical Education' },
+        { value: 'Commerce', label: 'Commerce' },
+        { value: 'Accounting', label: 'Accounting' },
+        { value: 'Art', label: 'Art' },
+        { value: 'Music', label: 'Music' },
+        { value: 'Dancing', label: 'Dancing' },
+        { value: 'Drama', label: 'Drama' }
       ],
       grade5: [
-        { value: 'mathematics', label: 'Mathematics' },
-        { value: 'sinhala', label: 'Sinhala' },
-        { value: 'tamil', label: 'Tamil' },
-        { value: 'environment', label: 'Environment Related Activities' },
-        { value: 'english', label: 'English' }
+        { value: 'Mathematics', label: 'Mathematics' },
+        { value: 'Sinhala', label: 'Sinhala' },
+        { value: 'Tamil', label: 'Tamil' },
+        { value: 'Environment Related Activities', label: 'Environment Related Activities' },
+        { value: 'English', label: 'English' }
       ]
     },
     
@@ -208,16 +208,34 @@ export const useMetadata = (initialMetadata = {}) => {
 
     // Set subjects based on stream or exam type
     if (metadata.examType !== 'grade5') {
+      let staticSubjects = [];
       if (metadata.stream) {
-        newAvailableOptions.subjects = allOptions.subjects[metadata.stream] || [];
+        staticSubjects = allOptions.subjects[metadata.stream] || [];
       } else if (metadata.examType && ['o_level'].includes(metadata.examType)) {
-        newAvailableOptions.subjects = allOptions.subjects[metadata.examType] || [];
+        staticSubjects = allOptions.subjects[metadata.examType] || [];
       }
+      
+      // Transform backend subjects to the correct format
+      const backendSubjects = (availableOptions.backendSubjects || []).map(subject => ({
+        value: subject.Name, // Use original name for backend compatibility
+        label: subject.Name
+      })).filter(s => s.value && s.label);
+      
+      // Combine static and backend subjects, avoiding duplicates
+      const combinedSubjects = [...staticSubjects];
+      backendSubjects.forEach(backendSubject => {
+        if (!combinedSubjects.find(s => s.value === backendSubject.value)) {
+          combinedSubjects.push(backendSubject);
+        }
+      });
+      
+      newAvailableOptions.subjects = combinedSubjects;
     }
 
     // Set paper types for specific subjects or for Grade 5
-    if (['physics', 'chemistry', 'biology'].includes(metadata.subject)) {
-      newAvailableOptions.paperTypes = allOptions.paperTypes[metadata.subject] || [];
+    if (['Physics', 'Chemistry', 'Biology'].includes(metadata.subject)) {
+      const subjectKey = metadata.subject.toLowerCase();
+      newAvailableOptions.paperTypes = allOptions.paperTypes[subjectKey] || [];
     } else if (metadata.examType === 'grade5') {
       newAvailableOptions.paperTypes = allOptions.paperTypes.grade5 || [];
     }
