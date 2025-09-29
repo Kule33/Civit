@@ -25,6 +25,9 @@ const AdminManageQuestions = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [imagePreviewModal, setImagePreviewModal] = useState({ isOpen: false, imageUrl: '', title: '' });
   const [subjectStats, setSubjectStats] = useState([]);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState(null);
   
   const { showOverlay } = useSubmission();
 
@@ -184,14 +187,15 @@ const AdminManageQuestions = () => {
     }));
   };
 
-  const handleDeleteQuestion = async (questionId) => {
-    if (!window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteQuestion = (questionId) => {
+    setQuestionToDelete(questionId);
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
     try {
       // Call backend API to delete question
-      await axios.delete(`http://localhost:5201/api/questions/${questionId}`, {
+      await axios.delete(`http://localhost:5201/api/questions/${questionToDelete}`, {
         headers: {
           'Content-Type': 'application/json',
         }
@@ -205,13 +209,17 @@ const AdminManageQuestions = () => {
       });
       
       // Remove question from local state
-      const updatedQuestions = questions.filter(q => q.id !== questionId);
+      const updatedQuestions = questions.filter(q => q.id !== questionToDelete);
       setQuestions(updatedQuestions);
-      setSelectedQuestions(prev => prev.filter(id => id !== questionId));
+      setSelectedQuestions(prev => prev.filter(id => id !== questionToDelete));
       
       // Recalculate subject statistics
       const stats = calculateSubjectStats(updatedQuestions);
       setSubjectStats(stats);
+      
+      // Close dialog
+      setShowDeleteConfirm(false);
+      setQuestionToDelete(null);
       
     } catch (error) {
       console.error('Failed to delete question:', error);
@@ -222,6 +230,8 @@ const AdminManageQuestions = () => {
         autoClose: true,
         autoCloseDelay: 5000
       });
+      setShowDeleteConfirm(false);
+      setQuestionToDelete(null);
     }
   };
 
@@ -262,7 +272,11 @@ const AdminManageQuestions = () => {
     }
   }, [imagePreviewModal.isOpen]);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
+    setShowSaveConfirm(true);
+  };
+
+  const confirmSave = async () => {
     setIsSavingEdit(true);
     try {
       // Prepare data for backend API
@@ -308,6 +322,7 @@ const AdminManageQuestions = () => {
       const stats = calculateSubjectStats(updatedQuestions);
       setSubjectStats(stats);
       
+      setShowSaveConfirm(false);
       handleCloseEditModal();
     } catch (error) {
       console.error('Failed to update question:', error);
@@ -318,6 +333,7 @@ const AdminManageQuestions = () => {
         autoClose: true,
         autoCloseDelay: 5000
       });
+      setShowSaveConfirm(false);
     } finally {
       setIsSavingEdit(false);
     }
@@ -736,6 +752,35 @@ const AdminManageQuestions = () => {
         </div>
       )}
 
+      {/* Save Confirmation Dialog */}
+      {showSaveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirm Save Changes
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to save the changes to this question?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowSaveConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmSave}
+                disabled={isSavingEdit}
+              >
+                {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {isEditModalOpen && editingQuestion && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -957,7 +1002,7 @@ const AdminManageQuestions = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end space-x-3 px-6 pt-4 pb-6 border-t border-gray-200">
               <Button
                 variant="outline"
                 onClick={handleCloseEditModal}
@@ -971,6 +1016,65 @@ const AdminManageQuestions = () => {
                 disabled={isSavingEdit}
               >
                 {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Confirmation Dialog */}
+      {showSaveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirm Save Changes
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to save the changes to this question?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowSaveConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmSave}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirm Delete Question
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this question? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setQuestionToDelete(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmDelete}
+              >
+                Delete Question
               </Button>
             </div>
           </div>
