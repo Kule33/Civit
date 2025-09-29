@@ -24,6 +24,7 @@ const AdminManageQuestions = () => {
   const [editFormData, setEditFormData] = useState({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [imagePreviewModal, setImagePreviewModal] = useState({ isOpen: false, imageUrl: '', title: '' });
+  const [subjectStats, setSubjectStats] = useState([]);
   
   const { showOverlay } = useSubmission();
 
@@ -40,7 +41,22 @@ const AdminManageQuestions = () => {
     updateMetadata(field, value);
   };
 
-  // Initial load effect to fetch all questions
+  // Function to calculate subject statistics
+  const calculateSubjectStats = (questions) => {
+    const stats = {};
+    questions.forEach(question => {
+      const subjectName = question.subject?.name || question.subject || 'Unknown';
+      stats[subjectName] = (stats[subjectName] || 0) + 1;
+    });
+    
+    // Convert to array and sort by count, take top 4
+    return Object.entries(stats)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  };
+
+  // Initial load effect to fetch all questions and calculate stats
   useEffect(() => {
     const fetchInitialQuestions = async () => {
       if (!searchPerformed) {
@@ -49,11 +65,17 @@ const AdminManageQuestions = () => {
           // Fetch all questions on initial load
           const params = new URLSearchParams();
           const response = await searchQuestions(params);
-          setQuestions(Array.isArray(response) ? response : []);
+          const questionsArray = Array.isArray(response) ? response : [];
+          setQuestions(questionsArray);
+          
+          // Calculate and set subject statistics
+          const stats = calculateSubjectStats(questionsArray);
+          setSubjectStats(stats);
         } catch (error) {
           console.error('Failed to fetch initial questions:', error);
           // Don't show error overlay on initial load, just keep empty state
           setQuestions([]);
+          setSubjectStats([]);
         } finally {
           setLoading(false);
         }
@@ -80,8 +102,13 @@ const AdminManageQuestions = () => {
       console.log('Searching questions with URL:', `/api/questions?${params.toString()}`);
 
       const response = await searchQuestions(params);
-      setQuestions(Array.isArray(response) ? response : []);
+      const questionsArray = Array.isArray(response) ? response : [];
+      setQuestions(questionsArray);
       setSearchPerformed(true);
+      
+      // Update subject statistics when searching
+      const stats = calculateSubjectStats(questionsArray);
+      setSubjectStats(stats);
     } catch (error) {
       const errorMessage = error.response?.data?.title || error.message || 'Failed to fetch questions. Please try again.';
       setError(errorMessage);
@@ -178,8 +205,13 @@ const AdminManageQuestions = () => {
       });
       
       // Remove question from local state
-      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      const updatedQuestions = questions.filter(q => q.id !== questionId);
+      setQuestions(updatedQuestions);
       setSelectedQuestions(prev => prev.filter(id => id !== questionId));
+      
+      // Recalculate subject statistics
+      const stats = calculateSubjectStats(updatedQuestions);
+      setSubjectStats(stats);
       
     } catch (error) {
       console.error('Failed to delete question:', error);
@@ -265,11 +297,16 @@ const AdminManageQuestions = () => {
       });
       
       // Update local data with the response
-      setQuestions(prev => prev.map(q => 
+      const updatedQuestions = questions.map(q => 
         q.id === editingQuestion.id 
           ? { ...q, ...response.data }
           : q
-      ));
+      );
+      setQuestions(updatedQuestions);
+      
+      // Recalculate subject statistics
+      const stats = calculateSubjectStats(updatedQuestions);
+      setSubjectStats(stats);
       
       handleCloseEditModal();
     } catch (error) {
@@ -313,6 +350,57 @@ const AdminManageQuestions = () => {
           </div>
         }
       />
+
+      {/* Subject Statistics Section */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Subjects by Question Count</h2>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-4">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded mb-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-16"></div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : subjectStats.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {subjectStats.map((stat, index) => (
+              <Card key={stat.name} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900 truncate" title={stat.name}>
+                      {stat.name}
+                    </h3>
+                    <p className="text-2xl font-bold text-blue-600 mt-1">
+                      {stat.count.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stat.count === 1 ? 'Question' : 'Questions'}
+                    </p>
+                  </div>
+                  <div className="ml-3">
+                    <div className={`w-4 h-4 rounded-full ${
+                      index === 0 ? 'bg-green-500' : 
+                      index === 1 ? 'bg-blue-500' : 
+                      index === 2 ? 'bg-yellow-500' : 'bg-purple-500'
+                    }`} title={`Rank ${index + 1}`} />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4 text-center text-gray-500">
+              <p>No data available</p>
+            </Card>
+          </div>
+        )}
+      </div>
 
       {/* Search and Filter Section - PaperBuilder Style */}
       {!isFiltersMinimized && (
