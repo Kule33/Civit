@@ -7,9 +7,8 @@ import SelectField from '../../components/ui/SelectField.jsx';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import InputField from '../../components/ui/InputField.jsx';
 import { useMetadata } from '../../hooks/useMetadata.js';
-import { searchQuestions } from '../../services/questionService.js';
+import { searchQuestions, updateQuestion, deleteQuestion } from '../../services/questionService.js';
 import { useSubmission } from '../../context/SubmissionContext';
-import axios from 'axios';
 
 const AdminManageQuestions = () => {
   // Core state management for questions and UI
@@ -193,12 +192,8 @@ const AdminManageQuestions = () => {
 
   const confirmDelete = async () => {
     try {
-      // Call backend API to delete question
-      await axios.delete(`http://localhost:5201/api/questions/${questionToDelete}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      // Call backend API to delete question with authentication
+      await deleteQuestion(questionToDelete);
       
       showOverlay({
         status: 'success',
@@ -294,12 +289,8 @@ const AdminManageQuestions = () => {
         uploader: editFormData.uploader
       };
 
-      // Call backend API to update question
-      const response = await axios.put(`http://localhost:5201/api/questions/${editingQuestion.id}`, updateData, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      // Call backend API to update question with authentication
+      const response = await updateQuestion(editingQuestion.id, updateData);
       
       showOverlay({
         status: 'success',
@@ -311,7 +302,7 @@ const AdminManageQuestions = () => {
       // Update local data with the response
       const updatedQuestions = questions.map(q => 
         q.id === editingQuestion.id 
-          ? { ...q, ...response.data }
+          ? { ...q, ...response }
           : q
       );
       setQuestions(updatedQuestions);

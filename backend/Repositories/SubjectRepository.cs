@@ -3,6 +3,7 @@ using backend.Data;
 using backend.Models;
 using backend.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -31,7 +32,7 @@ namespace backend.Repositories
 
         public async Task<Subject?> GetSubjectByNameAsync(string name)
         {
-            return await _context.Subjects.FirstOrDefaultAsync(s => s.Name == name);
+            return await _context.Subjects.FirstOrDefaultAsync(s => EF.Functions.ILike(s.Name, name));
         }
 
         public async Task<IEnumerable<Subject>> GetAllSubjectsAsync()

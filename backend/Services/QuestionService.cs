@@ -145,6 +145,127 @@ namespace backend.Services
             return questionDtos;
         }
 
+        public async Task<QuestionResponseDto?> UpdateQuestionAsync(Guid id, QuestionUploadDto updateDto)
+        {
+            Console.WriteLine($"[DEBUG] UpdateQuestionAsync called for ID: {id}");
+            Console.WriteLine($"[DEBUG] UpdateDto data: Title={updateDto.Title}, Subject={updateDto.Subject}, SchoolName={updateDto.SchoolName}");
+            
+            // Service-level role enforcement
+            if (!IsUserInRole("admin"))
+            {
+                Console.WriteLine("[DEBUG] User is not admin, throwing UnauthorizedAccessException");
+                throw new UnauthorizedAccessException("Only administrators can update questions.");
+            }
+
+            Console.WriteLine("[DEBUG] User is admin, proceeding with update");
+
+            // Get the existing question
+            var existingQuestion = await _questionRepository.GetQuestionByIdAsync(id);
+            if (existingQuestion == null)
+            {
+                Console.WriteLine("[DEBUG] Question not found in database");
+                return null;
+            }
+            
+            Console.WriteLine($"[DEBUG] Found existing question: {existingQuestion.Title}");
+
+            // Resolve Subject and School by name to get their IDs (similar to upload logic)
+            int? subjectId = null;
+            int? schoolId = null;
+
+            if (!string.IsNullOrEmpty(updateDto.Subject))
+            {
+                Console.WriteLine($"[DEBUG] Looking up subject: '{updateDto.Subject}'");
+                var subject = await _subjectRepository.GetSubjectByNameAsync(updateDto.Subject);
+                if (subject == null)
+                {
+                    Console.WriteLine($"[DEBUG] Subject not found, creating new subject: '{updateDto.Subject}'");
+                    try
+                    {
+                        subject = new Subject { Name = updateDto.Subject };
+                        subject = await _subjectRepository.AddSubjectAsync(subject);
+                        Console.WriteLine($"[DEBUG] Created new subject with ID: {subject.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DEBUG] Error creating subject: {ex.Message}");
+                        // If subject creation fails, try to find it again (might be race condition)
+                        subject = await _subjectRepository.GetSubjectByNameAsync(updateDto.Subject);
+                        if (subject == null)
+                        {
+                            throw new InvalidOperationException($"Failed to create or find subject '{updateDto.Subject}': {ex.Message}");
+                        }
+                        Console.WriteLine($"[DEBUG] Found existing subject after creation failure with ID: {subject.Id}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG] Found existing subject with ID: {subject.Id}");
+                }
+                subjectId = subject.Id;
+            }
+
+            if (!string.IsNullOrEmpty(updateDto.SchoolName))
+            {
+                Console.WriteLine($"[DEBUG] Looking up school: '{updateDto.SchoolName}'");
+                var school = await _schoolRepository.GetSchoolByNameAsync(updateDto.SchoolName);
+                if (school == null)
+                {
+                    Console.WriteLine($"[DEBUG] School not found, creating new school: '{updateDto.SchoolName}'");
+                    try
+                    {
+                        school = new School { Name = updateDto.SchoolName };
+                        school = await _schoolRepository.AddSchoolAsync(school);
+                        Console.WriteLine($"[DEBUG] Created new school with ID: {school.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DEBUG] Error creating school: {ex.Message}");
+                        // If school creation fails, try to find it again (might be race condition)
+                        school = await _schoolRepository.GetSchoolByNameAsync(updateDto.SchoolName);
+                        if (school == null)
+                        {
+                            throw new InvalidOperationException($"Failed to create or find school '{updateDto.SchoolName}': {ex.Message}");
+                        }
+                        Console.WriteLine($"[DEBUG] Found existing school after creation failure with ID: {school.Id}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG] Found existing school with ID: {school.Id}");
+                }
+                schoolId = school.Id;
+            }
+
+            // Update the question properties
+            existingQuestion.Title = updateDto.Title ?? existingQuestion.Title;
+            existingQuestion.Country = updateDto.Country ?? existingQuestion.Country;
+            existingQuestion.ExamType = updateDto.ExamType ?? existingQuestion.ExamType;
+            existingQuestion.Stream = updateDto.Stream ?? existingQuestion.Stream;
+            existingQuestion.SubjectId = subjectId ?? existingQuestion.SubjectId;
+            existingQuestion.PaperType = updateDto.PaperType ?? existingQuestion.PaperType;
+            existingQuestion.PaperCategory = updateDto.PaperCategory ?? existingQuestion.PaperCategory;
+            existingQuestion.Year = updateDto.Year ?? existingQuestion.Year;
+            existingQuestion.Term = updateDto.Term ?? existingQuestion.Term;
+            existingQuestion.SchoolId = schoolId ?? existingQuestion.SchoolId;
+            existingQuestion.Uploader = updateDto.Uploader ?? existingQuestion.Uploader;
+
+            Console.WriteLine("[DEBUG] About to update question in repository");
+            Console.WriteLine($"[DEBUG] Updated question properties: Title={existingQuestion.Title}, SubjectId={existingQuestion.SubjectId}, SchoolId={existingQuestion.SchoolId}");
+            
+            // Update in repository
+            var success = await _questionRepository.UpdateQuestionAsync(existingQuestion);
+            if (!success)
+            {
+                Console.WriteLine("[DEBUG] Repository update failed");
+                return null;
+            }
+
+            Console.WriteLine("[DEBUG] Repository update successful, fetching updated question");
+            // Return the updated question
+            return await GetQuestionByIdAsync(id);
+        }
+
         public async Task<bool> DeleteQuestionAsync(Guid id)
         {
             // NEW: Service-level role enforcement
@@ -275,6 +396,7 @@ namespace backend.Services
                     Name = question.School.Name
                 } : null,
                 Uploader = question.Uploader,
+                Title = question.Title,
                 FileUrl = question.FileUrl,
                 FilePublicId = question.FilePublicId,
                 UploadDate = question.UploadDate

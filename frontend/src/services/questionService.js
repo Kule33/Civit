@@ -280,3 +280,35 @@ export const testCloudinarySignature = async () => {
     throw error;
   }
 };
+
+// Update a question
+export const updateQuestion = async (questionId, updateData) => {
+  try {
+    console.log('📤 Updating question:', questionId, updateData);
+    
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.put(`${API_BASE_URL}/${questionId}`, updateData, authHeaders);
+    
+    console.log('✅ Question updated successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error updating question:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Delete a question
+export const deleteQuestion = async (questionId) => {
+  try {
+    console.log('📤 Deleting question:', questionId);
+    
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.delete(`${API_BASE_URL}/${questionId}`, authHeaders);
+    
+    console.log('✅ Question deleted successfully');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error deleting question:', error.response?.data || error.message);
+    throw error;
+  }
+};

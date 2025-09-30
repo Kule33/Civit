@@ -82,6 +82,41 @@ namespace backend.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        [Authorize(Roles = "admin")] // Only 'admin' role can update
+        public async Task<IActionResult> UpdateQuestion(Guid id, [FromBody] QuestionUploadDto updateDto)
+        {
+            Console.WriteLine($"[DEBUG] PUT request received for question ID: {id}");
+            Console.WriteLine($"[DEBUG] Update data: {System.Text.Json.JsonSerializer.Serialize(updateDto)}");
+            
+            if (updateDto == null)
+            {
+                Console.WriteLine("[DEBUG] Update data is null");
+                return BadRequest("Update data is required");
+            }
+
+            try
+            {
+                Console.WriteLine("[DEBUG] Calling UpdateQuestionAsync...");
+                var result = await _questionService.UpdateQuestionAsync(id, updateDto);
+                if (result == null)
+                {
+                    Console.WriteLine("[DEBUG] UpdateQuestionAsync returned null - question not found");
+                    return NotFound();
+                }
+                Console.WriteLine($"[DEBUG] Update successful, returning result: {System.Text.Json.JsonSerializer.Serialize(result)}");
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
         [HttpDelete("{id}")]
         [Authorize(Roles = "admin")] // NEW: Only 'admin' role can delete
         public async Task<IActionResult> DeleteQuestion(Guid id)

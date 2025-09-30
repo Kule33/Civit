@@ -13,6 +13,7 @@ namespace backend.Services.Interfaces
         Task<QuestionResponseDto?> GetQuestionByIdAsync(Guid id);
         // Modify this method to accept search criteria
         Task<IEnumerable<QuestionResponseDto>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto);
+        Task<QuestionResponseDto?> UpdateQuestionAsync(Guid id, QuestionUploadDto updateDto);
         Task<bool> DeleteQuestionAsync(Guid id);
 
         // Subject management methods

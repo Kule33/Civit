@@ -46,6 +46,9 @@ namespace backend.Models
         [StringLength(255)]
         public string? Uploader { get; set; }
 
+        [StringLength(500)]
+        public string? Title { get; set; }
+
         [Required]
         public string FileUrl { get; set; } = string.Empty;
 

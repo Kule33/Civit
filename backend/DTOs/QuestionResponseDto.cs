@@ -26,6 +26,7 @@ namespace backend.DTOs
         // OR public int? SchoolId { get; set; } // If you prefer just the ID
 
         public string? Uploader { get; set; }
+        public string? Title { get; set; }
         public string FileUrl { get; set; } = string.Empty;
         public string? FilePublicId { get; set; }
         public DateTime UploadDate { get; set; }
