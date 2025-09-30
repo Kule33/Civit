@@ -167,7 +167,6 @@ const AdminManageQuestions = () => {
       term: question.term || '',
       schoolName: question.schoolName || question.school?.name || '',
       uploader: question.uploader || '',
-      status: question.status || 'pending',
       title: question.title || '',
       fileUrl: question.fileUrl || ''
     });
@@ -292,8 +291,7 @@ const AdminManageQuestions = () => {
         year: editFormData.year ? parseInt(editFormData.year) : null,
         term: editFormData.term,
         schoolName: editFormData.schoolName,
-        uploader: editFormData.uploader,
-        status: editFormData.status
+        uploader: editFormData.uploader
       };
 
       // Call backend API to update question
@@ -973,18 +971,6 @@ const AdminManageQuestions = () => {
                       </div>
                     </>
                   )}
-
-                  {/* Status */}
-                  <SelectField
-                    label="Status"
-                    value={editFormData.status}
-                    onChange={(e) => handleEditFormChange('status', e.target.value)}
-                    options={[
-                      { value: 'pending', label: 'Pending' },
-                      { value: 'approved', label: 'Approved' },
-                      { value: 'rejected', label: 'Rejected' }
-                    ]}
-                  />
 
                   {/* Uploader */}
                   <div>
