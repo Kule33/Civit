@@ -9,6 +9,7 @@ namespace backend.Services.Interfaces
     {
         Task<ImageUploadResult?> UploadImageAsync(IFormFile file);
         Task<DeletionResult?> DeleteFileAsync(string publicId);
+        Task<RawUploadResult?> UploadRawAsync(IFormFile file, string folder = "typesets");
         // Maybe other methods later, e.g., for video, raw files.
     }
 }

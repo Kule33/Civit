@@ -8,6 +8,8 @@ namespace backend.DTOs
         public string? Subject { get; set; }
         public string? PaperType { get; set; }
         public string? PaperCategory { get; set; }
+        public string? Folder { get; set; } // For direct folder specification
+        public string? ResourceType { get; set; } // For raw file uploads ("raw", "image", "video", etc.)
     }
 
     public class CloudinarySignatureResponseDto

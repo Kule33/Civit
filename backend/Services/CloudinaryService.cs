@@ -76,5 +76,41 @@ namespace backend.Services
             var result = await _cloudinary.DestroyAsync(deleteParams);
             return result;
         }
+
+        public async Task<RawUploadResult?> UploadRawAsync(IFormFile file, string folder = "typesets")
+        {
+            // Placeholder/Dummy implementation for now if Cloudinary not set up
+            if (string.IsNullOrEmpty(_cloudinarySettings.CloudName) ||
+                string.IsNullOrEmpty(_cloudinarySettings.ApiKey) ||
+                string.IsNullOrEmpty(_cloudinarySettings.ApiSecret))
+            {
+                // Simulate a successful upload with a dummy URL for development
+                return new RawUploadResult
+                {
+                    PublicId = $"dummy_raw_public_id_{Guid.NewGuid()}",
+                    Url = new System.Uri($"https://dummy.com/raw/{file.FileName}") // Dummy URL
+                };
+            }
+
+            // Real Cloudinary raw upload logic for DOCX/PDF
+            var uploadResult = new RawUploadResult();
+
+            if (file.Length > 0)
+            {
+                using var stream = file.OpenReadStream();
+                var uploadParams = new RawUploadParams()
+                {
+                    File = new FileDescription(file.FileName, stream),
+                    Folder = folder,
+                    UseFilename = true,
+                    UniqueFilename = true,
+                    Overwrite = false
+                };
+
+                uploadResult = await _cloudinary.UploadAsync(uploadParams);
+            }
+
+            return uploadResult;
+        }
     }
 }
