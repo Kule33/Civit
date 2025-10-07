@@ -10,6 +10,7 @@ namespace backend.Data
         public DbSet<Question> Questions { get; set; }
         public DbSet<Subject> Subjects { get; set; }
         public DbSet<School> Schools { get; set; }
+        public DbSet<Typeset> Typesets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -46,6 +47,21 @@ namespace backend.Data
             {
                 entity.HasKey(s => s.Id);
                 entity.HasIndex(s => s.Name).IsUnique();
+            });
+
+            // Configure Typeset entity
+            modelBuilder.Entity<Typeset>(entity =>
+            {
+                entity.HasKey(t => t.Id);
+                
+                // Unique index on QuestionId to enforce 1:1 relationship
+                entity.HasIndex(t => t.QuestionId).IsUnique();
+                
+                // Configure Question relationship with cascade delete
+                entity.HasOne(t => t.Question)
+                    .WithMany()
+                    .HasForeignKey(t => t.QuestionId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

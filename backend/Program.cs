@@ -199,9 +199,11 @@ builder.Services.AddSingleton(provider => {
 builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ISchoolRepository, SchoolRepository>();
+builder.Services.AddScoped<ITypesetRepository, TypesetRepository>();
 
 // Register Services
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+builder.Services.AddScoped<ITypesetService, TypesetService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -212,7 +214,8 @@ builder.Services.AddScoped<IQuestionService, QuestionService>(provider =>
         provider.GetRequiredService<IQuestionRepository>(),
         provider.GetRequiredService<ISubjectRepository>(),
         provider.GetRequiredService<ISchoolRepository>(),
-        provider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>()
+        provider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>(),
+        provider.GetRequiredService<ITypesetRepository>()
     ));
 
 builder.Services.AddControllers();

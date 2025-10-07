@@ -30,5 +30,10 @@ namespace backend.DTOs
         public string? FilePublicId { get; set; }
         public DateTime UploadDate { get; set; }
         public string? UniqueKey { get; set; }
+        
+        // Typeset availability
+        public bool TypesetAvailable { get; set; }
+        public string? TypesetFileUrl { get; set; }
+        public string? TypesetFileName { get; set; }
     }
 }

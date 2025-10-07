@@ -280,3 +280,19 @@ export const testCloudinarySignature = async () => {
     throw error;
   }
 };
+
+/**
+ * Delete a question (Admin only)
+ * @param {string} questionId - GUID of the question to delete
+ * @returns {Promise<boolean>} true if deleted successfully
+ */
+export const deleteQuestion = async (questionId) => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.delete(`${API_BASE_URL}/${questionId}`, authHeaders);
+    return response.status === 204 || response.status === 200;
+  } catch (error) {
+    console.error('Error deleting question:', error.response?.data || error.message);
+    throw error;
+  }
+};

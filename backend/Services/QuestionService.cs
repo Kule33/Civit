@@ -17,17 +17,20 @@ namespace backend.Services
         private readonly ISubjectRepository _subjectRepository;
         private readonly ISchoolRepository _schoolRepository;
         private readonly IHttpContextAccessor _httpContextAccessor; // NEW: Inject IHttpContextAccessor
+        private readonly ITypesetRepository _typesetRepository; // NEW: For typeset availability
 
         public QuestionService(
             IQuestionRepository questionRepository,
             ISubjectRepository subjectRepository,
             ISchoolRepository schoolRepository,
-            IHttpContextAccessor httpContextAccessor) // NEW: Add to constructor
+            IHttpContextAccessor httpContextAccessor,
+            ITypesetRepository typesetRepository) // NEW: Add to constructor
         {
             _questionRepository = questionRepository;
             _subjectRepository = subjectRepository;
             _schoolRepository = schoolRepository;
             _httpContextAccessor = httpContextAccessor; // NEW: Assign
+            _typesetRepository = typesetRepository; // NEW: Assign
         }
 
         public async Task<QuestionResponseDto?> UploadQuestionAsync(QuestionUploadDto uploadDto)
@@ -254,6 +257,9 @@ namespace backend.Services
         // Private helper method to map Question to QuestionResponseDto
         private QuestionResponseDto MapQuestionToResponseDto(Question question)
         {
+            // Check if typeset exists for this question
+            var typeset = _typesetRepository.GetByQuestionIdAsync(question.Id).Result;
+            
             return new QuestionResponseDto
             {
                 Id = question.Id,
@@ -277,7 +283,11 @@ namespace backend.Services
                 Uploader = question.Uploader,
                 FileUrl = question.FileUrl,
                 FilePublicId = question.FilePublicId,
-                UploadDate = question.UploadDate
+                UploadDate = question.UploadDate,
+                // NEW: Typeset availability
+                TypesetAvailable = typeset != null && typeset.IsActive,
+                TypesetFileUrl = typeset?.FileUrl,
+                TypesetFileName = typeset?.FileName
             };
         }
 

@@ -33,8 +33,10 @@ namespace backend.Controllers
         {
             try
             {
-                // Generate folder path based on metadata
-                var folderPath = GenerateFolderPath(request);
+                // Use direct folder if provided, otherwise generate from metadata
+                var folderPath = string.IsNullOrEmpty(request.Folder) 
+                    ? GenerateFolderPath(request) 
+                    : request.Folder;
                 
                 var timestamp = ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeSeconds();
                 
@@ -44,6 +46,12 @@ namespace backend.Controllers
                     { "folder", folderPath },
                     { "timestamp", timestamp }
                 };
+
+                // Add resource_type if specified (required for raw file uploads)
+                if (!string.IsNullOrEmpty(request.ResourceType))
+                {
+                    parameters.Add("resource_type", request.ResourceType);
+                }
 
                 // Generate signature
                 var signature = _cloudinary.Api.SignParameters(parameters);

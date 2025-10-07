@@ -120,6 +120,37 @@ export const useAdvancedPaperGeneration = () => {
       color: '#1e40af',
       lineHeight: 1.4,
     },
+    typesetBadge: {
+      marginTop: 8,
+      padding: 6,
+      backgroundColor: '#d1fae5',
+      border: '1 solid #10b981',
+      borderRadius: 4,
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    typesetBadgeText: {
+      fontSize: 9,
+      fontWeight: 'bold',
+      color: '#065f46',
+    },
+    typesetFileName: {
+      fontSize: 8,
+      color: '#047857',
+      marginTop: 2,
+    },
+    questionId: {
+      fontSize: 8,
+      color: '#9ca3af',
+      marginTop: 4,
+      fontFamily: 'Courier',
+    },
+    questionIdLabel: {
+      fontSize: 8,
+      color: '#6b7280',
+      fontWeight: 'bold',
+    },
   });
 
   /**
@@ -234,6 +265,14 @@ export const useAdvancedPaperGeneration = () => {
                   Uploaded by: {question.uploader}
                 </Text>
               )}
+
+              {/* Question ID (UUID) */}
+              <View style={{ marginTop: 8, paddingTop: 8, borderTop: '1 solid #e5e7eb' }}>
+                <Text style={styles.questionId}>
+                  <Text style={styles.questionIdLabel}>Question ID: </Text>
+                  {question.id}
+                </Text>
+              </View>
             </View>
           ))}
 
