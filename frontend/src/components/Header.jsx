@@ -1,13 +1,13 @@
 // frontend/src/components/layouts/Header.jsx
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom'; // Import useNavigate
-import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, BookOpen, Menu, X, LogOut, LogIn } from 'lucide-react';
+import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, BookOpen, Menu, X, LogOut, LogIn, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthProvider'; // Import useAuth
 
 const Header = () => {
   const [scrollY, setScrollY] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, isAdmin, isTeacher, logout } = useAuth(); // Use the auth hook
+  const { user, userProfile, isAdmin, isTeacher, logout } = useAuth(); // Use the auth hook
   const navigate = useNavigate(); // For redirection after logout
 
   useEffect(() => {
@@ -30,6 +30,7 @@ const Header = () => {
   const allNavigationItems = [
     { name: 'Home', path: '/', icon: Home, roles: ['admin', 'teacher', 'guest'] }, // Everyone can see home
     { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard, roles: ['admin', 'teacher'] },
+    { name: 'Users', path: '/admin/users', icon: Users, roles: ['admin'] },
     { name: 'Paper Builder', path: '/teacher/paper-builder', icon: FileText, roles: ['admin', 'teacher'] },
     { name: 'Payment', path: '/teacher/payment', icon: CreditCard, roles: ['admin', 'teacher'] },
     { name: 'Question Upload', path: '/admin/questions/upload', icon: Upload, roles: ['admin'] },
@@ -103,11 +104,11 @@ const Header = () => {
 
                 <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-50/80 backdrop-blur-sm hover:bg-gray-100/80 transition-all duration-500 shadow-sm border border-gray-200/50 group hover:scale-105">
                   <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    {user.email ? user.email.substring(0, 2).toUpperCase() : 'US'} {/* Display user's initials */}
+                    {userProfile?.fullName ? userProfile.fullName.substring(0, 2).toUpperCase() : (user.email ? user.email.substring(0, 2).toUpperCase() : 'US')}
                   </div>
                   <div>
                     <span className="text-base font-semibold text-gray-900">
-                      {user.email || 'Guest'}
+                      {userProfile?.fullName || user.email || 'Guest'}
                     </span>
                     <p className="text-sm text-gray-600 font-medium">
                       {isAdmin ? 'Administrator' : isTeacher ? 'Teacher' : 'User'}

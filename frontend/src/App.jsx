@@ -17,15 +17,20 @@ import TeacherPayment from './routes/Teacher/TeacherPayment.jsx';
 import AdminQuestionUpload from './routes/Admin/QuestionUpload.jsx';
 import AdminManageQuestions from './routes/Admin/ManageQuestions.jsx';
 import AdminTypesetUpload from './routes/Admin/TypesetUpload.jsx';
+import Users from './routes/Admin/Users.jsx';
 
 // NEW: Import a Login and/or Signup component (we'll create these soon)
 import LoginPage from './routes/Auth/LoginPage.jsx'; // Assuming you'll put auth pages here
+import CompleteProfile from './routes/CompleteProfile.jsx';
 
 function App() {
-  const { loading: authLoading } = useAuth(); // Get auth loading state
+  const { loading: authLoading, user } = useAuth(); // Get auth loading state
+
+  console.log('App.jsx rendering, authLoading:', authLoading, 'user:', user?.email || 'No user');
 
   // If AuthProvider is still loading, show a global loading indicator
   if (authLoading) {
+    console.log('App showing loading screen because authLoading is true');
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center space-y-4">
@@ -41,6 +46,8 @@ function App() {
     );
   }
 
+  console.log('App.jsx rendering routes now');
+
   return (
     <SubmissionProvider>
       <Routes>
@@ -49,6 +56,9 @@ function App() {
           <Route index element={<Home />} />
           <Route path="login" element={<LoginPage />} /> {/* NEW: Login Page */}
           {/* Add a signup page here too if you're implementing it immediately */}
+          
+          {/* Complete Profile - Requires authentication but not role-protected */}
+          <Route path="complete-profile" element={<CompleteProfile />} />
 
           {/* Teacher Routes - Protected */}
           <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
@@ -62,6 +72,7 @@ function App() {
             <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
             <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
             <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
+            <Route path="admin/users" element={<Users />} />
           </Route>
 
           {/* 404 Not Found Page */}

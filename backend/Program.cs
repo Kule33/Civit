@@ -207,11 +207,13 @@ builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ISchoolRepository, SchoolRepository>();
 builder.Services.AddScoped<ITypesetRepository, TypesetRepository>();
 builder.Services.AddScoped<IPaperGenerationRepository, PaperGenerationRepository>();
+builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 
 // Register Services
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 builder.Services.AddScoped<ITypesetService, TypesetService>();
 builder.Services.AddScoped<IPaperGenerationService, PaperGenerationService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();

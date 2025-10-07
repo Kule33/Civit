@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, UserPlus } from 'lucide-react'; // Import icons
+import { getMyProfile } from '../../services/userService';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -32,7 +33,20 @@ function LoginPage() {
         setIsSigningUp(false); // Switch back to login after signup attempt
       } else {
         await login(email, password);
-        navigate('/'); // Redirect to home on successful login
+        
+        // Check if user has a profile
+        try {
+          await getMyProfile();
+          navigate('/'); // Profile exists, go to home
+        } catch (profileError) {
+          if (profileError.response?.status === 404) {
+            // No profile found, redirect to complete profile
+            navigate('/complete-profile');
+          } else {
+            // Other error, still go to home
+            navigate('/');
+          }
+        }
       }
     } catch (err) {
       console.error('Auth error:', err);

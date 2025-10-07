@@ -240,32 +240,50 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 // Questions Management Section Component
 const QuestionsManagementSection = ({ questions, loading, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
   const { showOverlay } = useSubmission();
-  const pageSize = 10;
+  const pageSize = 50; // ⚡ OPTIMIZATION: Increased from 10 to 50
 
-  const filteredQuestions = questions.filter(q => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      q.id?.toLowerCase().includes(searchLower) ||
-      q.subject?.name?.toLowerCase().includes(searchLower) ||
-      q.school?.name?.toLowerCase().includes(searchLower) ||
-      q.country?.toLowerCase().includes(searchLower) ||
-      q.examType?.toLowerCase().includes(searchLower)
+  // ⚡ OPTIMIZATION: Debounce search input (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // ⚡ OPTIMIZATION: Memoize filtered results to prevent recalculation on every render
+  const filteredQuestions = React.useMemo(() => {
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    if (!searchLower) return questions;
+    
+    return questions.filter(q => {
+      return (
+        q.id?.toLowerCase().includes(searchLower) ||
+        q.subject?.name?.toLowerCase().includes(searchLower) ||
+        q.school?.name?.toLowerCase().includes(searchLower) ||
+        q.country?.toLowerCase().includes(searchLower) ||
+        q.examType?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [questions, debouncedSearchTerm]);
+
+  // ⚡ OPTIMIZATION: Memoize pagination calculations
+  const { totalPages, paginatedQuestions } = React.useMemo(() => {
+    const total = Math.ceil(filteredQuestions.length / pageSize);
+    const paginated = filteredQuestions.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
     );
-  });
-
-  const totalPages = Math.ceil(filteredQuestions.length / pageSize);
-  const paginatedQuestions = filteredQuestions.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+    return { totalPages: total, paginatedQuestions: paginated };
+  }, [filteredQuestions, currentPage, pageSize]);
 
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearchTerm]);
 
   const handleDelete = (question) => {
     setDeleteModal({ isOpen: true, item: question });
@@ -475,32 +493,50 @@ const QuestionsManagementSection = ({ questions, loading, onRefresh }) => {
 // Typesets Management Section Component
 const TypesetsManagementSection = ({ typesets, loading, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
   const { showOverlay } = useSubmission();
-  const pageSize = 10;
+  const pageSize = 50; // ⚡ OPTIMIZATION: Increased from 10 to 50
 
-  const filteredTypesets = typesets.filter(t => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      t.questionId?.toLowerCase().includes(searchLower) ||
-      t.question?.id?.toLowerCase().includes(searchLower) ||
-      t.fileName?.toLowerCase().includes(searchLower) ||
-      t.question?.subject?.name?.toLowerCase().includes(searchLower) ||
-      t.question?.school?.name?.toLowerCase().includes(searchLower)
+  // ⚡ OPTIMIZATION: Debounce search input (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // ⚡ OPTIMIZATION: Memoize filtered results
+  const filteredTypesets = React.useMemo(() => {
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    if (!searchLower) return typesets;
+    
+    return typesets.filter(t => {
+      return (
+        t.questionId?.toLowerCase().includes(searchLower) ||
+        t.question?.id?.toLowerCase().includes(searchLower) ||
+        t.fileName?.toLowerCase().includes(searchLower) ||
+        t.question?.subject?.name?.toLowerCase().includes(searchLower) ||
+        t.question?.school?.name?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [typesets, debouncedSearchTerm]);
+
+  // ⚡ OPTIMIZATION: Memoize pagination calculations
+  const { totalPages, paginatedTypesets } = React.useMemo(() => {
+    const total = Math.ceil(filteredTypesets.length / pageSize);
+    const paginated = filteredTypesets.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
     );
-  });
-
-  const totalPages = Math.ceil(filteredTypesets.length / pageSize);
-  const paginatedTypesets = filteredTypesets.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+    return { totalPages: total, paginatedTypesets: paginated };
+  }, [filteredTypesets, currentPage, pageSize]);
 
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearchTerm]);
 
   const handleDelete = (typeset) => {
     setDeleteModal({ isOpen: true, item: typeset });

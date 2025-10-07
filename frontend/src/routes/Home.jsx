@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthProvider';
 import { FileText, Database, Users, BookOpen, Award, CheckCircle, GraduationCap, PenTool, Calculator, Clock, Target, Search, Upload, MessageCircle, CreditCard, Filter, Camera, Globe, Zap, Edit3 } from 'lucide-react';
 
 const Home = () => {
+  const navigate = useNavigate();
+  const { user, userProfile, profileLoading } = useAuth();
+
+  // Redirect authenticated users without profiles to complete profile page
+  useEffect(() => {
+    if (user && !profileLoading && !userProfile) {
+      console.log('User authenticated but no profile found, redirecting to complete profile');
+      navigate('/complete-profile');
+    }
+  }, [user, userProfile, profileLoading, navigate]);
+
   const handleNavigation = (path) => {
     console.log('Navigate to:', path);
-    // Navigation logic would be handled by your router
+    navigate(path);
   };
 
   const features = [

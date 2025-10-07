@@ -68,16 +68,40 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
-      // Load all questions
-      const questionsData = await searchQuestions(new URLSearchParams());
-      const questionsArray = Array.isArray(questionsData) ? questionsData : [];
-      setQuestions(questionsArray);
-
-      // Load typesets for questions that have them
+      // Get session token first
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      if (token) {
+      // ⚡ OPTIMIZATION: Fetch all top-level data in parallel
+      const [questionsData, analyticsResult, userResult] = await Promise.all([
+        searchQuestions(new URLSearchParams()).catch(err => {
+          console.error('Error loading questions:', err);
+          return [];
+        }),
+        token ? getPaperAnalytics(365).catch(err => {
+          console.error('Error loading paper analytics:', err);
+          return null;
+        }) : Promise.resolve(null),
+        token ? getUserCount().catch(err => {
+          console.error('Error loading user count:', err);
+          return { totalUsers: 0 };
+        }) : Promise.resolve({ totalUsers: 0 })
+      ]);
+
+      const questionsArray = Array.isArray(questionsData) ? questionsData : [];
+      setQuestions(questionsArray);
+      
+      // Process paper analytics
+      if (analyticsResult) {
+        const processed = processPaperAnalytics(analyticsResult);
+        setPaperAnalytics(processed);
+      }
+      
+      // Set total users
+      setTotalUsers(userResult.totalUsers || 0);
+
+      // Load typesets for questions that have them (secondary data)
+      if (token && questionsArray.length > 0) {
         const questionsWithTypesets = questionsArray.filter(q => q.typesetAvailable);
         
         const typesetPromises = questionsWithTypesets.map(async (q) => {
@@ -95,25 +119,6 @@ const Dashboard = () => {
         const typesetsResults = await Promise.all(typesetPromises);
         const validTypesets = typesetsResults.filter(t => t !== null);
         setTypesets(validTypesets);
-
-        // Load paper analytics
-        try {
-          const analyticsData = await getPaperAnalytics(365);
-          const processed = processPaperAnalytics(analyticsData);
-          setPaperAnalytics(processed);
-        } catch (analyticsError) {
-          console.error('Error loading paper analytics:', analyticsError);
-          // Don't fail the whole dashboard if analytics fails
-        }
-
-        // Get total users from backend
-        try {
-          const userData = await getUserCount();
-          setTotalUsers(userData.totalUsers || 0);
-        } catch (userError) {
-          console.error('Error loading user count:', userError);
-          // Fallback: Don't show error, just keep count at 0
-        }
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -200,44 +205,58 @@ const Dashboard = () => {
 
       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <HeroStatsCard
-          title="Questions"
-          value={heroStats.totalQuestions}
-          icon={BookOpen}
-          color="blue"
-          gradient="from-blue-500 to-cyan-500"
-        />
-        <HeroStatsCard
-          title="Typesets"
-          value={heroStats.totalTypesets}
-          icon={Award}
-          color="green"
-          gradient="from-green-500 to-emerald-500"
-        />
-        <HeroStatsCard
-          title="Coverage"
-          value={`${heroStats.coverage}%`}
-          icon={Target}
-          color="purple"
-          gradient="from-purple-500 to-pink-500"
-          subtitle={`${heroStats.withTypesets} with typesets`}
-        />
-        <HeroStatsCard
-          title="Users"
-          value={totalUsers}
-          icon={UserCheck}
-          color="orange"
-          gradient="from-orange-500 to-amber-500"
-          subtitle="Active users"
-        />
-        <HeroStatsCard
-          title="Papers"
-          value={paperAnalytics?.totalPapersGenerated || 0}
-          icon={Sparkles}
-          color="indigo"
-          gradient="from-indigo-500 to-violet-500"
-          subtitle="Generated"
-        />
+        {loading ? (
+          // ⚡ Show skeleton cards while loading
+          <>
+            <HeroStatsCardSkeleton />
+            <HeroStatsCardSkeleton />
+            <HeroStatsCardSkeleton />
+            <HeroStatsCardSkeleton />
+            <HeroStatsCardSkeleton />
+          </>
+        ) : (
+          // ⚡ Show actual data when loaded
+          <>
+            <HeroStatsCard
+              title="Questions"
+              value={heroStats.totalQuestions}
+              icon={BookOpen}
+              color="blue"
+              gradient="from-blue-500 to-cyan-500"
+            />
+            <HeroStatsCard
+              title="Typesets"
+              value={heroStats.totalTypesets}
+              icon={Award}
+              color="green"
+              gradient="from-green-500 to-emerald-500"
+            />
+            <HeroStatsCard
+              title="Coverage"
+              value={`${heroStats.coverage}%`}
+              icon={Target}
+              color="purple"
+              gradient="from-purple-500 to-pink-500"
+              subtitle={`${heroStats.withTypesets} with typesets`}
+            />
+            <HeroStatsCard
+              title="Users"
+              value={totalUsers}
+              icon={UserCheck}
+              color="orange"
+              gradient="from-orange-500 to-amber-500"
+              subtitle="Active users"
+            />
+            <HeroStatsCard
+              title="Papers"
+              value={paperAnalytics?.totalPapersGenerated || 0}
+              icon={Sparkles}
+              color="indigo"
+              gradient="from-indigo-500 to-violet-500"
+              subtitle="Generated"
+            />
+          </>
+        )}
       </div>
 
       {/* Charts Row */}
@@ -319,8 +338,25 @@ const Dashboard = () => {
   );
 };
 
-// Modern Hero Stats Card Component with Blended UI
-// eslint-disable-next-line no-unused-vars
+// ⚡ Skeleton loading component for Hero Stats Card
+const HeroStatsCardSkeleton = () => {
+  return (
+    <div className="relative overflow-hidden rounded-xl bg-white border border-gray-100 shadow-lg animate-pulse">
+      <div className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
+            <div className="h-10 bg-gray-300 rounded w-16"></div>
+            <div className="h-2 bg-gray-200 rounded w-24 mt-2"></div>
+          </div>
+          <div className="p-3 rounded-xl bg-gray-200 w-12 h-12"></div>
+        </div>
+      </div>
+      <div className="h-1 bg-gray-200"></div>
+    </div>
+  );
+};
+
 const HeroStatsCard = ({ title, value, icon: Icon, color, gradient, subtitle }) => {
   const colorClasses = {
     blue: {

@@ -5,6 +5,36 @@ import { supabase } from '../supabaseClient';
 const API_BASE_URL = 'http://localhost:5201/api/questions';
 const CLOUDINARY_API_URL = 'http://localhost:5201/api/cloudinary';
 
+// ============================================
+// PERFORMANCE OPTIMIZATION: Caching & Deduplication
+// ============================================
+
+// In-memory cache for API responses
+const cache = {
+  questions: { data: null, timestamp: 0 },
+  subjects: { data: null, timestamp: 0 },
+  schools: { data: null, timestamp: 0 },
+  CACHE_DURATION: 30000, // 30 seconds
+};
+
+// Track in-flight requests to prevent duplicates
+const inFlightRequests = {};
+
+// Invalidate cache (call after mutations)
+export const invalidateCache = (key = null) => {
+  if (key) {
+    console.log(`🗑️ Invalidating cache for: ${key}`);
+    cache[key] = { data: null, timestamp: 0 };
+  } else {
+    console.log('🗑️ Invalidating all caches');
+    Object.keys(cache).forEach(k => {
+      if (k !== 'CACHE_DURATION') {
+        cache[k] = { data: null, timestamp: 0 };
+      }
+    });
+  }
+};
+
 // Helper function to get the authorization header with the current Supabase JWT
 const getAuthHeaders = async () => {
   const { data: { session }, error } = await supabase.auth.getSession();
@@ -191,6 +221,10 @@ export const saveQuestionMetadata = async (metadataWithUrls) => {
     const response = await axios.post(API_BASE_URL + '/upload', transformedData, authHeaders);
     
     console.log('✅ Metadata save successful:', response.data);
+    
+    // Invalidate questions cache after successful save
+    invalidateCache('questions');
+    
     return response.data;
   } catch (error) {
     console.error('❌ Metadata save failed:');
@@ -207,39 +241,134 @@ export const saveQuestionMetadata = async (metadataWithUrls) => {
   }
 };
 
-// Search questions with filters - THIS IS THE KEY FUNCTION FOR PAPERBUILDER
+// Search questions with filters - OPTIMIZED WITH CACHING & DEDUPLICATION
 export const searchQuestions = async (params) => {
   try {
-    const authHeaders = await getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}?${params.toString()}`, authHeaders);
-    console.log('✅ Questions searched:', response.data);
-    return response.data;
+    const cacheKey = `questions_${params?.toString() || 'all'}`;
+    const now = Date.now();
+    
+    // Check cache first
+    if (cache.questions.data && cache.questions.timestamp && 
+        (now - cache.questions.timestamp < cache.CACHE_DURATION)) {
+      console.log('💾 Returning cached questions');
+      return cache.questions.data;
+    }
+    
+    // Check for in-flight request
+    if (inFlightRequests[cacheKey]) {
+      console.log('⏳ Deduplicating questions request');
+      return await inFlightRequests[cacheKey];
+    }
+    
+    // Create new request
+    const requestPromise = (async () => {
+      const authHeaders = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_BASE_URL}?${params?.toString() || ''}`, 
+        { 
+          ...authHeaders,
+          timeout: 30000 // 30 second timeout
+        }
+      );
+      console.log('✅ Questions searched:', response.data.length || 0, 'items');
+      
+      // Update cache
+      cache.questions = { data: response.data, timestamp: now };
+      
+      return response.data;
+    })();
+    
+    // Track in-flight request
+    inFlightRequests[cacheKey] = requestPromise;
+    
+    try {
+      const result = await requestPromise;
+      return result;
+    } finally {
+      delete inFlightRequests[cacheKey];
+    }
   } catch (error) {
     console.error('❌ Failed to search questions:', error.response?.data || error.message);
     throw error;
   }
 };
 
-// Get all subjects from backend
+// Get all subjects from backend - OPTIMIZED WITH CACHING
 export const getAllSubjects = async () => {
   try {
-    const authHeaders = await getAuthHeaders();
-    const response = await axios.get(API_BASE_URL + '/subjects', authHeaders);
-    console.log('✅ Subjects fetched:', response.data);
-    return response.data;
+    const now = Date.now();
+    
+    // Check cache
+    if (cache.subjects.data && cache.subjects.timestamp && 
+        (now - cache.subjects.timestamp < cache.CACHE_DURATION)) {
+      console.log('💾 Returning cached subjects');
+      return cache.subjects.data;
+    }
+    
+    // Check for in-flight request
+    if (inFlightRequests.subjects) {
+      console.log('⏳ Deduplicating subjects request');
+      return await inFlightRequests.subjects;
+    }
+    
+    const requestPromise = (async () => {
+      const authHeaders = await getAuthHeaders();
+      const response = await axios.get(API_BASE_URL + '/subjects', { 
+        ...authHeaders, 
+        timeout: 30000 
+      });
+      console.log('✅ Subjects fetched:', response.data.length || 0);
+      cache.subjects = { data: response.data, timestamp: now };
+      return response.data;
+    })();
+    
+    inFlightRequests.subjects = requestPromise;
+    try {
+      return await requestPromise;
+    } finally {
+      delete inFlightRequests.subjects;
+    }
   } catch (error) {
     console.error('❌ Failed to fetch subjects:', error.response?.data || error.message);
     throw error;
   }
 };
 
-// Get all schools from backend
+// Get all schools from backend - OPTIMIZED WITH CACHING
 export const getAllSchools = async () => {
   try {
-    const authHeaders = await getAuthHeaders();
-    const response = await axios.get(API_BASE_URL + '/schools', authHeaders);
-    console.log('✅ Schools fetched:', response.data);
-    return response.data;
+    const now = Date.now();
+    
+    // Check cache
+    if (cache.schools.data && cache.schools.timestamp && 
+        (now - cache.schools.timestamp < cache.CACHE_DURATION)) {
+      console.log('💾 Returning cached schools');
+      return cache.schools.data;
+    }
+    
+    // Check for in-flight request
+    if (inFlightRequests.schools) {
+      console.log('⏳ Deduplicating schools request');
+      return await inFlightRequests.schools;
+    }
+    
+    const requestPromise = (async () => {
+      const authHeaders = await getAuthHeaders();
+      const response = await axios.get(API_BASE_URL + '/schools', { 
+        ...authHeaders, 
+        timeout: 30000 
+      });
+      console.log('✅ Schools fetched:', response.data.length || 0);
+      cache.schools = { data: response.data, timestamp: now };
+      return response.data;
+    })();
+    
+    inFlightRequests.schools = requestPromise;
+    try {
+      return await requestPromise;
+    } finally {
+      delete inFlightRequests.schools;
+    }
   } catch (error) {
     console.error('❌ Failed to fetch schools:', error.response?.data || error.message);
     throw error;
@@ -290,6 +419,12 @@ export const deleteQuestion = async (questionId) => {
   try {
     const authHeaders = await getAuthHeaders();
     const response = await axios.delete(`${API_BASE_URL}/${questionId}`, authHeaders);
+    
+    // Invalidate questions cache after successful delete
+    if (response.status === 204 || response.status === 200) {
+      invalidateCache('questions');
+    }
+    
     return response.status === 204 || response.status === 200;
   } catch (error) {
     console.error('Error deleting question:', error.response?.data || error.message);
