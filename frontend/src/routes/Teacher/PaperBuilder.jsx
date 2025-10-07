@@ -13,7 +13,7 @@ import { useMetadata } from '../../hooks/useMetadata.js';
 import { useAdvancedPaperGeneration } from '../../hooks/useAdvancedPaperGeneration.jsx';
 import { getSubjectName } from '../../utils/subjectMapping.js';
 // Updated import to use the service function
-import { searchQuestions } from '../../services/questionService.js';
+import { searchQuestions, logPaperGeneration } from '../../services/questionService.js';
 
 const PaperBuilder = () => {
   // Core state management for questions and UI
@@ -184,13 +184,22 @@ const PaperBuilder = () => {
       await generatePDF(
         questionsWithComments,
         // Success callback
-        (filename, questionCount) => {
+        async (filename, questionCount) => {
           showOverlay({
             status: 'success',
             message: `Successfully downloaded ${filename} with ${questionCount} questions`,
             autoClose: true,
             autoCloseDelay: 3000
           });
+
+          // Log paper generation for analytics (non-blocking)
+          try {
+            const questionIds = questionsWithComments.map(q => q.id);
+            await logPaperGeneration(questionIds, filename);
+          } catch (logError) {
+            console.error('Failed to log paper generation:', logError);
+            // Don't show error to user - logging is not critical
+          }
         },
         // Error callback
         (errorMessage) => {

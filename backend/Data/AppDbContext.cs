@@ -11,6 +11,7 @@ namespace backend.Data
         public DbSet<Subject> Subjects { get; set; }
         public DbSet<School> Schools { get; set; }
         public DbSet<Typeset> Typesets { get; set; }
+        public DbSet<PaperGeneration> PaperGenerations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

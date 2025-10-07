@@ -34,6 +34,12 @@ if (!string.IsNullOrWhiteSpace(flatJwt))
     Environment.SetEnvironmentVariable("Supabase__JwtSecret", flatJwt);
 }
 
+var flatServiceKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+if (!string.IsNullOrWhiteSpace(flatServiceKey))
+{
+    Environment.SetEnvironmentVariable("Supabase__ServiceRoleKey", flatServiceKey);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -200,10 +206,12 @@ builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ISchoolRepository, SchoolRepository>();
 builder.Services.AddScoped<ITypesetRepository, TypesetRepository>();
+builder.Services.AddScoped<IPaperGenerationRepository, PaperGenerationRepository>();
 
 // Register Services
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 builder.Services.AddScoped<ITypesetService, TypesetService>();
+builder.Services.AddScoped<IPaperGenerationService, PaperGenerationService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -217,6 +225,9 @@ builder.Services.AddScoped<IQuestionService, QuestionService>(provider =>
         provider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>(),
         provider.GetRequiredService<ITypesetRepository>()
     ));
+
+// Register HttpClient for API calls
+builder.Services.AddHttpClient();
 
 builder.Services.AddControllers();
 

@@ -284,3 +284,5 @@ D:\JV\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
 D:\JV\Civit\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 D:\JV\Civit\backend\bin\Debug\net8.0\DotNetEnv.dll
 D:\JV\Civit\backend\bin\Debug\net8.0\Sprache.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\package-lock.json
+D:\JV\Civit\backend\bin\Debug\net8.0\package.json

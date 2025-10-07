@@ -296,3 +296,63 @@ export const deleteQuestion = async (questionId) => {
     throw error;
   }
 };
+
+/**
+ * Log paper generation to track analytics
+ * @param {Array<string>} questionIds - Array of question GUIDs included in the paper
+ * @param {string} paperTitle - Optional title for the paper
+ * @returns {Promise<Object>} Response data from the backend
+ */
+export const logPaperGeneration = async (questionIds, paperTitle = null) => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.post(
+      'http://localhost:5201/api/papergenerations/log',
+      { questionIds, paperTitle },
+      authHeaders
+    );
+    console.log('✅ Paper generation logged:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error logging paper generation:', error.response?.data || error.message);
+    // Don't throw error - logging failures shouldn't break paper generation
+    return null;
+  }
+};
+
+/**
+ * Get paper generation analytics
+ * @param {number} days - Number of days to fetch analytics for (default: 30)
+ * @returns {Promise<Object>} Analytics data
+ */
+export const getPaperAnalytics = async (days = 30) => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(
+      `http://localhost:5201/api/papergenerations/analytics?days=${days}`,
+      authHeaders
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching paper analytics:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Get total user count from Supabase
+ * @returns {Promise<Object>} User count data
+ */
+export const getUserCount = async () => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(
+      'http://localhost:5201/api/users/count',
+      authHeaders
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user count:', error.response?.data || error.message);
+    return { totalUsers: 0, adminCount: 0, teacherCount: 0 };
+  }
+};
