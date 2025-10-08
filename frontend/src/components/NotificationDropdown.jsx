@@ -1,16 +1,31 @@
 import React, { useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { markAsRead, markAllAsRead } from '../../services/notificationService';
+import { markAsRead, markAllAsRead } from '../services/notificationService';
 
 const NotificationDropdown = ({ 
   notifications, 
   onClose, 
   onNotificationRead, 
-  onMarkAllRead 
+  onMarkAllRead,
+  buttonRef
 }) => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+
+  // Calculate dropdown position based on button position
+  const [position, setPosition] = React.useState({ top: 0, right: 0 });
+
+  useEffect(() => {
+    if (buttonRef?.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right
+      });
+    }
+  }, [buttonRef]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -99,13 +114,18 @@ const NotificationDropdown = ({
     }
   };
 
-  return (
+  const dropdownContent = (
     <div
       ref={dropdownRef}
-      className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] flex flex-col"
+      className="fixed w-96 bg-white rounded-lg shadow-2xl border-2 border-gray-300 z-[9999] max-h-[600px] flex flex-col"
+      style={{ 
+        backgroundColor: '#ffffff',
+        top: `${position.top}px`,
+        right: `${position.right}px`
+      }}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
         <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
         {notifications.length > 0 && (
           <button
@@ -179,6 +199,8 @@ const NotificationDropdown = ({
       )}
     </div>
   );
+
+  return ReactDOM.createPortal(dropdownContent, document.body);
 };
 
 export default NotificationDropdown;

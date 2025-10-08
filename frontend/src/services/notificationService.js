@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { supabase } from '../supabaseClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5054';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5201';
 
 // Cache configuration
 const CACHE_CONFIG = {
@@ -51,12 +52,27 @@ const clearCache = (cacheKey) => {
   }
 };
 
+// Helper: Get authorization headers from Supabase session
+const getAuthHeaders = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  
+  if (error || !session) {
+    return null;
+  }
+  
+  return {
+    'Authorization': `Bearer ${session.access_token}`,
+    'Content-Type': 'application/json'
+  };
+};
+
 // Get user notifications (paginated)
 export const getUserNotifications = async (page = 1, pageSize = 10, isRead = null) => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      // Return empty list if not authenticated
+      return { notifications: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 };
     }
 
     const params = { page, pageSize };
@@ -65,9 +81,7 @@ export const getUserNotifications = async (page = 1, pageSize = 10, isRead = nul
     }
 
     const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       params,
       timeout: 30000,
     });
@@ -80,7 +94,8 @@ export const getUserNotifications = async (page = 1, pageSize = 10, isRead = nul
     return response.data;
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    throw error;
+    // Return empty list on error
+    return { notifications: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 };
   }
 };
 
@@ -93,15 +108,14 @@ export const getUnreadCount = async () => {
       return cached;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      // Return 0 if not authenticated
+      return { unreadCount: 0 };
     }
 
     const response = await axios.get(`${API_BASE_URL}/api/notifications/unread-count`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       timeout: 30000,
     });
 
@@ -109,25 +123,24 @@ export const getUnreadCount = async () => {
     return response.data;
   } catch (error) {
     console.error('Error fetching unread count:', error);
-    throw error;
+    // Return 0 count on error
+    return { unreadCount: 0 };
   }
 };
 
 // Mark notification as read
 export const markAsRead = async (notificationId) => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      throw new Error('Not authenticated');
     }
 
     const response = await axios.put(
       `${API_BASE_URL}/api/notifications/${notificationId}/read`,
       {},
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         timeout: 30000,
       }
     );
@@ -145,18 +158,16 @@ export const markAsRead = async (notificationId) => {
 // Mark all notifications as read
 export const markAllAsRead = async () => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      throw new Error('Not authenticated');
     }
 
     const response = await axios.put(
       `${API_BASE_URL}/api/notifications/mark-all-read`,
       {},
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         timeout: 30000,
       }
     );
@@ -174,17 +185,15 @@ export const markAllAsRead = async () => {
 // Delete notification
 export const deleteNotification = async (notificationId) => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      throw new Error('Not authenticated');
     }
 
     const response = await axios.delete(
       `${API_BASE_URL}/api/notifications/${notificationId}`,
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         timeout: 30000,
       }
     );
@@ -202,18 +211,16 @@ export const deleteNotification = async (notificationId) => {
 // Create notification (admin only)
 export const createNotification = async (notificationData) => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      throw new Error('Not authenticated');
     }
 
     const response = await axios.post(
       `${API_BASE_URL}/api/notifications`,
       notificationData,
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         timeout: 30000,
       }
     );

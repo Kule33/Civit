@@ -194,5 +194,40 @@ namespace backend.Controllers
                 return StatusCode(500, "Failed to create notification");
             }
         }
+
+        // POST /api/notifications/test - Test endpoint to create a notification for current user
+        [HttpPost("test")]
+        public async Task<IActionResult> CreateTestNotification()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+
+                var notification = await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                {
+                    UserId = userId,
+                    Type = "info",
+                    Title = "Test Notification",
+                    Message = "This is a test notification to verify the system is working!",
+                    Link = "/teacher/dashboard"
+                });
+
+                _logger.LogInformation($"Test notification created for user {userId}");
+
+                return Ok(new { 
+                    message = "Test notification created successfully", 
+                    notification 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating test notification");
+                return StatusCode(500, "Failed to create test notification");
+            }
+        }
     }
 }

@@ -12,6 +12,7 @@ const Header = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
+  const bellButtonRef = useRef(null);
   const { user, userProfile, isAdmin, isTeacher, logout } = useAuth(); // Use the auth hook
   const navigate = useNavigate(); // For redirection after logout
 
@@ -106,9 +107,9 @@ const Header = () => {
   });
 
   return (
-    <header className={`bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 transition-all duration-500 ${scrollY > 0 ? 'shadow-xl bg-white/90' : 'shadow-lg'} relative overflow-hidden`}>
+    <header className={`bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 transition-all duration-500 ${scrollY > 0 ? 'shadow-xl bg-white/90' : 'shadow-lg'} relative`}>
       {/* Subtle animated background elements */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 via-purple-50/20 to-indigo-50/30"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 via-purple-50/20 to-indigo-50/30 overflow-hidden"></div>
       <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-400/60 via-purple-400/60 to-indigo-400/60"></div>
 
       {/* Subtle floating particles */}
@@ -127,7 +128,7 @@ const Header = () => {
         ))}
       </div>
       {/* Top section */}
-      <div className="px-6 py-4 relative z-10">
+      <div className="px-6 py-4 relative z-[1]">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-3 group">
@@ -141,7 +142,7 @@ const Header = () => {
             <div className="transform group-hover:translate-x-1 transition-all duration-500">
               <h1 className="text-3xl font-bold text-gray-900">Paper Master</h1>
               <p className="text-base text-gray-600 font-medium flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Educational Paper Management
               </p>
             </div>
@@ -151,18 +152,19 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <>
-                <div className="relative">
+                <div className="relative z-[10000]">
                   <button 
+                    ref={bellButtonRef}
                     onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-500 backdrop-blur-sm border border-gray-200/50 group hover:scale-110"
+                    className="relative p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-300 backdrop-blur-sm border border-gray-200/50 group hover:scale-110"
                   >
                     <Bell size={20} className="group-hover:animate-bounce" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                      <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
                         <span className="text-xs text-white font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
                       </span>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-purple-100/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-sm"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-purple-100/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 blur-sm"></div>
                   </button>
                   
                   {showNotifications && (
@@ -171,6 +173,7 @@ const Header = () => {
                       onClose={() => setShowNotifications(false)}
                       onNotificationRead={handleNotificationRead}
                       onMarkAllRead={handleMarkAllAsRead}
+                      buttonRef={bellButtonRef}
                     />
                   )}
                 </div>
@@ -224,7 +227,7 @@ const Header = () => {
       {user && (
         <div className="hidden md:block relative border-t border-gray-200/50">
           <div className="absolute inset-0 bg-gray-50/60 backdrop-blur-sm"></div>
-          <div className="relative z-10 max-w-7xl mx-auto">
+          <div className="relative z-[1] max-w-7xl mx-auto">
             <nav className="flex items-center">
               {navigationItems.map((item) => (
                 <NavLink
@@ -257,10 +260,6 @@ const Header = () => {
                       <div className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 shadow-sm ${
                         isActive ? 'w-full opacity-100' : 'w-0 group-hover:w-full opacity-80'
                       }`}></div>
-
-                      {isActive && (
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 rounded-full animate-bounce shadow-sm"></div>
-                      )}
                     </>
                   )}
                 </NavLink>

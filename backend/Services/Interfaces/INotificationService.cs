@@ -21,6 +21,9 @@ namespace backend.Services.Interfaces
         // Create admin notification (broadcast to all admins)
         Task CreateAdminNotificationAsync(string type, string title, string message, string? link = null);
 
+        // Create teacher notification (broadcast to all teachers)
+        Task<int> CreateTeacherBroadcastNotificationAsync(string title, string message, string? link = null);
+
         // Mark as read
         Task<bool> MarkAsReadAsync(int notificationId, string userId);
 

@@ -3,6 +3,7 @@ using backend.Models;
 using backend.Repositories.Interfaces;
 using backend.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace backend.Services
 {
@@ -10,13 +11,16 @@ namespace backend.Services
     {
         private readonly INotificationRepository _notificationRepo;
         private readonly IUserProfileRepository _userProfileRepo;
+        private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(
             INotificationRepository notificationRepo,
-            IUserProfileRepository userProfileRepo)
+            IUserProfileRepository userProfileRepo,
+            ILogger<NotificationService> logger)
         {
             _notificationRepo = notificationRepo;
             _userProfileRepo = userProfileRepo;
+            _logger = logger;
         }
 
         public async Task<PaginatedNotificationsDto> GetUserNotificationsAsync(
@@ -110,6 +114,50 @@ namespace backend.Services
                     Message = message,
                     Link = link
                 });
+            }
+        }
+
+        public async Task<int> CreateTeacherBroadcastNotificationAsync(
+            string title, 
+            string message, 
+            string? link = null)
+        {
+            try
+            {
+                // Get all teacher users
+                var allProfiles = await _userProfileRepo.GetAllAsync();
+                var teachers = allProfiles.Where(p => p.Role.ToLower() == "teacher").ToList();
+
+                var notificationsSent = 0;
+
+                foreach (var teacher in teachers)
+                {
+                    try
+                    {
+                        await CreateNotificationAsync(new CreateNotificationDto
+                        {
+                            UserId = teacher.Id,
+                            Type = "info",
+                            Title = title,
+                            Message = message,
+                            Link = link
+                        });
+
+                        notificationsSent++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to create notification for teacher {teacher.Id}");
+                    }
+                }
+
+                _logger.LogInformation($"Created {notificationsSent} teacher notifications");
+                return notificationsSent;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating teacher broadcast notifications");
+                return 0;
             }
         }
 
