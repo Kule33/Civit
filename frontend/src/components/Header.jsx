@@ -1,12 +1,17 @@
 // frontend/src/components/layouts/Header.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, BookOpen, Menu, X, LogOut, LogIn, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthProvider'; // Import useAuth
+import NotificationDropdown from './NotificationDropdown';
+import { getUnreadCount, getUserNotifications } from '../services/notificationService';
 
 const Header = () => {
   const [scrollY, setScrollY] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
   const { user, userProfile, isAdmin, isTeacher, logout } = useAuth(); // Use the auth hook
   const navigate = useNavigate(); // For redirection after logout
 
@@ -15,6 +20,58 @@ const Header = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Fetch unread count every 30 seconds
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const data = await getUnreadCount();
+        setUnreadCount(data.unreadCount);
+      } catch (error) {
+        console.error('Error fetching unread count:', error);
+      }
+    };
+
+    // Initial fetch
+    fetchUnreadCount();
+
+    // Poll every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (!showNotifications || !user) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const data = await getUserNotifications(1, 10); // Get last 10 notifications
+        setNotifications(data.notifications || []);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    fetchNotifications();
+  }, [showNotifications, user]);
+
+  // Handle notification read
+  const handleNotificationRead = (notificationId) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  // Handle mark all as read
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  };
 
   const handleLogout = async () => {
     try {
@@ -94,13 +151,29 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <>
-                <button className="relative p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-500 backdrop-blur-sm border border-gray-200/50 group hover:scale-110">
-                  <Bell size={20} className="group-hover:animate-bounce" />
-                  <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                    <span className="text-xs text-white font-bold">3</span>
-                  </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-purple-100/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-sm"></div>
-                </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="relative p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-xl transition-all duration-500 backdrop-blur-sm border border-gray-200/50 group hover:scale-110"
+                  >
+                    <Bell size={20} className="group-hover:animate-bounce" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                        <span className="text-xs text-white font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                      </span>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-purple-100/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-sm"></div>
+                  </button>
+                  
+                  {showNotifications && (
+                    <NotificationDropdown
+                      notifications={notifications}
+                      onClose={() => setShowNotifications(false)}
+                      onNotificationRead={handleNotificationRead}
+                      onMarkAllRead={handleMarkAllAsRead}
+                    />
+                  )}
+                </div>
 
                 <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-50/80 backdrop-blur-sm hover:bg-gray-100/80 transition-all duration-500 shadow-sm border border-gray-200/50 group hover:scale-105">
                   <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg group-hover:scale-110 transition-transform duration-300">
