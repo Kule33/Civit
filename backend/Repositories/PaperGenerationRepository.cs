@@ -148,5 +148,25 @@ namespace backend.Repositories
                 .OrderByDescending(pg => pg.GeneratedAt)
                 .ToListAsync();
         }
+
+        public async Task<(int totalPapers, int totalQuestions, DateTime? lastGenerated, DateTime? firstGenerated)> GetUserStatsAsync(string teacherId)
+        {
+            var userPapers = await _context.PaperGenerations
+                .Where(pg => pg.TeacherId == teacherId)
+                .OrderByDescending(pg => pg.GeneratedAt)
+                .ToListAsync();
+
+            if (!userPapers.Any())
+            {
+                return (0, 0, null, null);
+            }
+
+            var totalPapers = userPapers.Count;
+            var totalQuestions = userPapers.Sum(pg => pg.TotalQuestions);
+            var lastGenerated = userPapers.Max(pg => pg.GeneratedAt);
+            var firstGenerated = userPapers.Min(pg => pg.GeneratedAt);
+
+            return (totalPapers, totalQuestions, lastGenerated, firstGenerated);
+        }
     }
 }

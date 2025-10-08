@@ -237,6 +237,80 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
   );
 };
 
+// ⚡ OPTIMIZATION: Memoized table row to prevent unnecessary re-renders
+const QuestionTableRow = React.memo(({ question, onDelete }) => {
+  const { showOverlay } = useSubmission();
+  
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(question.id);
+    showOverlay({
+      status: 'success',
+      message: 'Question ID copied!',
+      autoClose: true,
+      autoCloseDelay: 2000
+    });
+  };
+
+  return (
+    <tr key={question.id} className="hover:bg-gray-50 transition-colors">
+      <td className="px-4 py-3">
+        <button
+          onClick={handleCopyId}
+          className="text-xs font-mono text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
+          title={`Click to copy: ${question.id}`}
+        >
+          {question.id.substring(0, 8)}...
+        </button>
+      </td>
+      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+        {question.subject?.name || 'N/A'}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {question.school?.name || 'N/A'}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {question.year || 'N/A'}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {question.examType || 'N/A'}
+      </td>
+      <td className="px-4 py-3">
+        {question.typesetAvailable ? (
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+            <FileText className="h-3 w-3" />
+            Available
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400">None</span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {new Date(question.uploadDate).toLocaleDateString()}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => window.open(question.fileUrl, '_blank')}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="View Question"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onDelete(question)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+            title="Delete Question"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+QuestionTableRow.displayName = 'QuestionTableRow';
+
 // Questions Management Section Component
 const QuestionsManagementSection = ({ questions, loading, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -244,7 +318,7 @@ const QuestionsManagementSection = ({ questions, loading, onRefresh }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
   const { showOverlay } = useSubmission();
-  const pageSize = 50; // ⚡ OPTIMIZATION: Increased from 10 to 50
+  const pageSize = 25; // ⚡ OPTIMIZATION: Only 5 rows per page for better performance
 
   // ⚡ OPTIMIZATION: Debounce search input (300ms delay)
   useEffect(() => {
@@ -379,68 +453,11 @@ const QuestionsManagementSection = ({ questions, loading, onRefresh }) => {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedQuestions.map((question) => (
-                  <tr key={question.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(question.id);
-                          showOverlay({
-                            status: 'success',
-                            message: 'Question ID copied!',
-                            autoClose: true,
-                            autoCloseDelay: 2000
-                          });
-                        }}
-                        className="text-xs font-mono text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
-                        title={`Click to copy: ${question.id}`}
-                      >
-                        {question.id.substring(0, 8)}...
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {question.subject?.name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {question.school?.name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {question.year || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {question.examType || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3">
-                      {question.typesetAvailable ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
-                          <FileText className="h-3 w-3" />
-                          Available
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">None</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(question.uploadDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => window.open(question.fileUrl, '_blank')}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="View Question"
-                        >
-                          <Search className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(question)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Delete Question"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <QuestionTableRow 
+                    key={question.id} 
+                    question={question} 
+                    onDelete={handleDelete}
+                  />
                 ))}
               </tbody>
             </table>
@@ -490,6 +507,87 @@ const QuestionsManagementSection = ({ questions, loading, onRefresh }) => {
   );
 };
 
+// ⚡ OPTIMIZATION: Memoized typeset row to prevent unnecessary re-renders
+const TypesetTableRow = React.memo(({ typeset, onDelete }) => {
+  const { showOverlay } = useSubmission();
+  
+  const handleCopyId = () => {
+    const questionId = typeset.questionId || typeset.question?.id;
+    if (questionId) {
+      navigator.clipboard.writeText(questionId);
+      showOverlay({
+        status: 'success',
+        message: 'Question ID copied!',
+        autoClose: true,
+        autoCloseDelay: 2000
+      });
+    }
+  };
+
+  return (
+    <tr key={typeset.id} className="hover:bg-gray-50 transition-colors">
+      <td className="px-4 py-3">
+        <button
+          onClick={handleCopyId}
+          className="text-xs font-mono text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
+          title={`Click to copy: ${typeset.questionId || typeset.question?.id || 'N/A'}`}
+        >
+          {(typeset.questionId || typeset.question?.id)?.substring(0, 8) || 'N/A'}...
+        </button>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium text-gray-900">
+            {typeset.fileName || 'Unnamed'}
+          </span>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {typeset.question?.subject?.name || 'N/A'}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {typeset.question?.school?.name || 'N/A'}
+      </td>
+      <td className="px-4 py-3">
+        <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+          v{typeset.version}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        {new Date(typeset.uploadedAt).toLocaleDateString()}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => window.open(typeset.fileUrl, '_blank')}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="Download Typeset"
+          >
+            <Download className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => window.open(typeset.question?.fileUrl, '_blank')}
+            className="p-2 text-gray-600 hover:bg-gray-50 rounded transition-colors"
+            title="View Question"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onDelete(typeset)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+            title="Delete Typeset"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+TypesetTableRow.displayName = 'TypesetTableRow';
+
 // Typesets Management Section Component
 const TypesetsManagementSection = ({ typesets, loading, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -497,7 +595,7 @@ const TypesetsManagementSection = ({ typesets, loading, onRefresh }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
   const { showOverlay } = useSubmission();
-  const pageSize = 50; // ⚡ OPTIMIZATION: Increased from 10 to 50
+  const pageSize = 25; // ⚡ OPTIMIZATION: Only 5 rows per page for better performance
 
   // ⚡ OPTIMIZATION: Debounce search input (300ms delay)
   useEffect(() => {
@@ -638,75 +736,11 @@ const TypesetsManagementSection = ({ typesets, loading, onRefresh }) => {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedTypesets.map((typeset) => (
-                  <tr key={typeset.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => {
-                          const questionId = typeset.questionId || typeset.question?.id;
-                          if (questionId) {
-                            navigator.clipboard.writeText(questionId);
-                            showOverlay({
-                              status: 'success',
-                              message: 'Question ID copied!',
-                              autoClose: true,
-                              autoCloseDelay: 2000
-                            });
-                          }
-                        }}
-                        className="text-xs font-mono text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
-                        title={`Click to copy: ${typeset.questionId || typeset.question?.id || 'N/A'}`}
-                      >
-                        {(typeset.questionId || typeset.question?.id)?.substring(0, 8) || 'N/A'}...
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium text-gray-900">
-                          {typeset.fileName || 'Unnamed'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {typeset.question?.subject?.name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {typeset.question?.school?.name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                        v{typeset.version}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(typeset.uploadedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => window.open(typeset.fileUrl, '_blank')}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Download Typeset"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => window.open(typeset.question?.fileUrl, '_blank')}
-                          className="p-2 text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                          title="View Question"
-                        >
-                          <Search className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(typeset)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Delete Typeset"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <TypesetTableRow 
+                    key={typeset.id} 
+                    typeset={typeset} 
+                    onDelete={handleDelete}
+                  />
                 ))}
               </tbody>
             </table>

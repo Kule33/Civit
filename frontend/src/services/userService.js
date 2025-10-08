@@ -175,3 +175,19 @@ export const changeUserRole = async (id, newRole) => {
     throw error;
   }
 };
+
+/**
+ * Get user activity statistics
+ * @param {string} userId - User ID to get activity for
+ * @returns {Promise<Object>} User activity stats
+ */
+export const getUserActivity = async (userId) => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(`${API_BASE_URL}/${userId}/activity`, authHeaders);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    throw error;
+  }
+};
