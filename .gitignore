@@ -1,0 +1,23 @@
+# Ignore build output
+bin/
+obj/
+
+# Visual Studio temporary files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+
+# VS Code settings
+.vscode/
+
+# Publish folder
+*.publish/
