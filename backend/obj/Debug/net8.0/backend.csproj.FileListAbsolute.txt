@@ -286,3 +286,15 @@ D:\JV\Civit\backend\bin\Debug\net8.0\backend.runtimeconfig.json
 D:\JV\Civit\backend\bin\Debug\net8.0\backend.pdb
 D:\JV\Civit\backend\obj\Debug\net8.0\backend.genruntimeconfig.cache
 D:\JV\Civit\backend\obj\Debug\net8.0\ref\backend.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\package-lock.json
+D:\Civit\Civit\backend\bin\Debug\net8.0\package.json
+D:\Civit\Civit\backend\bin\Debug\net8.0\DotNetEnv.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\Sprache.dll
+D:\Civit\Civit\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
