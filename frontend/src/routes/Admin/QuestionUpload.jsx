@@ -209,8 +209,10 @@ const QuestionUpload = () => {
           };
 
           console.log(`🚀 Saving metadata for ${file.name}:`, backendData);
+          console.log(`📦 BATCH INFO: index=${i}, total=${filesToUpload.length}, isLast=${i === filesToUpload.length - 1}`);
 
-          await saveQuestionMetadata(backendData);
+          // Pass batch information to backend
+          await saveQuestionMetadata(backendData, i, filesToUpload.length);
           
           updateFileStatus(file.id, { status: 'completed' });
           uploadResults.push({ file: file.name, success: true });

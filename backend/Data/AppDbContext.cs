@@ -13,6 +13,7 @@ namespace backend.Data
         public DbSet<Typeset> Typesets { get; set; }
         public DbSet<PaperGeneration> PaperGenerations { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

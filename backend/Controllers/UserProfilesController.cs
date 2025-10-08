@@ -1,6 +1,7 @@
 using backend.Services.DTOs;
 using backend.Services.Interfaces;
 using backend.Repositories.Interfaces;
+using backend.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -13,15 +14,18 @@ public class UserProfilesController : ControllerBase
 {
     private readonly IUserProfileService _service;
     private readonly IPaperGenerationRepository _paperRepo;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<UserProfilesController> _logger;
 
     public UserProfilesController(
         IUserProfileService service, 
         IPaperGenerationRepository paperRepo,
+        INotificationService notificationService,
         ILogger<UserProfilesController> logger)
     {
         _service = service;
         _paperRepo = paperRepo;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -107,6 +111,23 @@ public class UserProfilesController : ControllerBase
             var profile = await _service.CreateProfileAsync(dto);
             
             _logger.LogInformation($"Profile created for user {supabaseUserId}");
+
+            // 🔔 NOTIFICATION: Notify all admins about new user registration
+            try
+            {
+                await _notificationService.CreateAdminNotificationAsync(
+                    "admin",
+                    "New User Registered",
+                    $"{profile.FullName} ({profile.Email}) has joined the platform as {profile.Role}",
+                    $"/admin/users"
+                );
+                _logger.LogInformation($"Admin notification sent for new user: {profile.FullName}");
+            }
+            catch (Exception notifEx)
+            {
+                _logger.LogError(notifEx, "Failed to send admin notification for new user");
+                // Don't fail the request if notification fails
+            }
             
             return CreatedAtAction(nameof(GetProfileById), new { id = profile.Id }, profile);
         }
@@ -148,9 +169,33 @@ public class UserProfilesController : ControllerBase
                 return Forbid();
             }
 
+            // Get old profile to detect role changes
+            var oldProfile = await _service.GetByIdAsync(id);
+            var oldRole = oldProfile?.Role;
+
             var profile = await _service.UpdateProfileAsync(id, dto);
             
             _logger.LogInformation($"Profile updated for user {id}");
+
+            // 🔔 NOTIFICATION: If role changed and user is admin, notify all admins
+            if (userRole == "admin" && !string.IsNullOrEmpty(dto.Role) && dto.Role != oldRole)
+            {
+                try
+                {
+                    await _notificationService.CreateAdminNotificationAsync(
+                        "admin",
+                        "User Role Changed",
+                        $"{profile.FullName} role changed from {oldRole} to {dto.Role}",
+                        $"/admin/users"
+                    );
+                    _logger.LogInformation($"Admin notification sent for role change: {profile.FullName} ({oldRole} → {dto.Role})");
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "Failed to send admin notification for role change");
+                    // Don't fail the request if notification fails
+                }
+            }
             
             return Ok(profile);
         }

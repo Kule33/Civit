@@ -192,7 +192,7 @@ export const uploadWithProgress = async (file, metadata, onProgress) => {
 };
 
 // Save metadata after Cloudinary upload
-export const saveQuestionMetadata = async (metadataWithUrls) => {
+export const saveQuestionMetadata = async (metadataWithUrls, batchIndex = null, batchTotal = null) => {
   try {
     const authHeaders = await getAuthHeaders();
 
@@ -216,9 +216,16 @@ export const saveQuestionMetadata = async (metadataWithUrls) => {
       fileFormat: metadataWithUrls.fileFormat
     };
 
-    console.log('📤 Sending to backend:', transformedData);
+    // Add batch parameters to URL if provided
+    let url = API_BASE_URL + '/upload';
+    if (batchIndex !== null && batchTotal !== null) {
+      url += `?batchIndex=${batchIndex}&batchTotal=${batchTotal}`;
+      console.log(`📤 Sending to backend (batch ${batchIndex + 1}/${batchTotal}):`, transformedData);
+    } else {
+      console.log('📤 Sending to backend:', transformedData);
+    }
 
-    const response = await axios.post(API_BASE_URL + '/upload', transformedData, authHeaders);
+    const response = await axios.post(url, transformedData, authHeaders);
     
     console.log('✅ Metadata save successful:', response.data);
     

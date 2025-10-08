@@ -1,10 +1,3 @@
-.env
-.env.*
-*.env
-
-# Prevent accidental commit of dev settings with expanded secrets (keep file but not values)
-!appsettings.Development.json
-
 # Ignore build output
 bin/
 obj/
