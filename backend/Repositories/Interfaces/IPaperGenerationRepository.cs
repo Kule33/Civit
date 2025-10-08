@@ -11,5 +11,6 @@ namespace backend.Repositories.Interfaces
         Task<Dictionary<string, int>> GetPopularSubjectsAsync();
         Task<Dictionary<string, int>> GetTeacherActivityAsync();
         Task<IEnumerable<PaperGeneration>> GetGenerationsByDateRangeAsync(DateTime? startDate, DateTime? endDate);
+        Task<(int totalPapers, int totalQuestions, DateTime? lastGenerated, DateTime? firstGenerated)> GetUserStatsAsync(string teacherId);
     }
 }

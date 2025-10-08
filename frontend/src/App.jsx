@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SubmissionProvider } from './context/SubmissionProvider';
 import { useAuth } from './context/AuthProvider'; // Import useAuth to access loading state
@@ -8,20 +8,34 @@ import { useAuth } from './context/AuthProvider'; // Import useAuth to access lo
 import MainLayout from './components/layouts/MainLayout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx'; // Import ProtectedRoute
 
-// Import your page components
+// ⚡ OPTIMIZATION: Eager load only essential components
 import Home from './routes/Home.jsx';
-import TeacherDashboard from './routes/Teacher/Dashboard.jsx';
-import PaperBuilder from './routes/Teacher/PaperBuilder.jsx';
-import TeacherPayment from './routes/Teacher/TeacherPayment.jsx';
-
-import AdminQuestionUpload from './routes/Admin/QuestionUpload.jsx';
-import AdminManageQuestions from './routes/Admin/ManageQuestions.jsx';
-import AdminTypesetUpload from './routes/Admin/TypesetUpload.jsx';
-import Users from './routes/Admin/Users.jsx';
-
-// NEW: Import a Login and/or Signup component (we'll create these soon)
-import LoginPage from './routes/Auth/LoginPage.jsx'; // Assuming you'll put auth pages here
+import LoginPage from './routes/Auth/LoginPage.jsx';
 import CompleteProfile from './routes/CompleteProfile.jsx';
+
+// ⚡ OPTIMIZATION: Lazy load heavy components (code splitting)
+const TeacherDashboard = lazy(() => import('./routes/Teacher/Dashboard.jsx'));
+const PaperBuilder = lazy(() => import('./routes/Teacher/PaperBuilder.jsx'));
+const TeacherPayment = lazy(() => import('./routes/Teacher/TeacherPayment.jsx'));
+
+const AdminQuestionUpload = lazy(() => import('./routes/Admin/QuestionUpload.jsx'));
+const AdminManageQuestions = lazy(() => import('./routes/Admin/ManageQuestions.jsx'));
+const AdminTypesetUpload = lazy(() => import('./routes/Admin/TypesetUpload.jsx'));
+const Users = lazy(() => import('./routes/Admin/Users.jsx'));
+
+// ⚡ Loading component for lazy-loaded routes
+const PageLoader = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center space-y-4">
+      <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mx-auto animate-pulse">
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+      </div>
+      <div>
+        <p className="text-gray-600 font-medium">Loading page...</p>
+      </div>
+    </div>
+  </div>
+);
 
 function App() {
   const { loading: authLoading, user } = useAuth(); // Get auth loading state
@@ -50,30 +64,30 @@ function App() {
 
   return (
     <SubmissionProvider>
-      <Routes>
-        {/* Public routes that everyone can access */}
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="login" element={<LoginPage />} /> {/* NEW: Login Page */}
-          {/* Add a signup page here too if you're implementing it immediately */}
-          
-          {/* Complete Profile - Requires authentication but not role-protected */}
-          <Route path="complete-profile" element={<CompleteProfile />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Public routes that everyone can access */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<LoginPage />} />
+            
+            {/* Complete Profile - Requires authentication but not role-protected */}
+            <Route path="complete-profile" element={<CompleteProfile />} />
 
-          {/* Teacher Routes - Protected */}
-          <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
-            <Route path="teacher/dashboard" element={<TeacherDashboard />} />
-            <Route path="teacher/paper-builder" element={<PaperBuilder />} />
-            <Route path="teacher/payment" element={<TeacherPayment />} />
-          </Route>
+            {/* Teacher Routes - Protected + Lazy Loaded */}
+            <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
+              <Route path="teacher/dashboard" element={<TeacherDashboard />} />
+              <Route path="teacher/paper-builder" element={<PaperBuilder />} />
+              <Route path="teacher/payment" element={<TeacherPayment />} />
+            </Route>
 
-          {/* Admin Routes - Protected */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
-            <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
-            <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
-            <Route path="admin/users" element={<Users />} />
-          </Route>
+            {/* Admin Routes - Protected + Lazy Loaded */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
+              <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
+              <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
+              <Route path="admin/users" element={<Users />} />
+            </Route>
 
           {/* 404 Not Found Page */}
           <Route path="*" element={
@@ -87,6 +101,7 @@ function App() {
           } />
         </Route>
       </Routes>
+      </Suspense>
     </SubmissionProvider>
   );
 }

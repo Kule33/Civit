@@ -1,5 +1,6 @@
 using backend.Services.DTOs;
 using backend.Services.Interfaces;
+using backend.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -11,11 +12,16 @@ namespace backend.Controllers;
 public class UserProfilesController : ControllerBase
 {
     private readonly IUserProfileService _service;
+    private readonly IPaperGenerationRepository _paperRepo;
     private readonly ILogger<UserProfilesController> _logger;
 
-    public UserProfilesController(IUserProfileService service, ILogger<UserProfilesController> logger)
+    public UserProfilesController(
+        IUserProfileService service, 
+        IPaperGenerationRepository paperRepo,
+        ILogger<UserProfilesController> logger)
     {
         _service = service;
+        _paperRepo = paperRepo;
         _logger = logger;
     }
 
@@ -38,6 +44,19 @@ public class UserProfilesController : ControllerBase
             if (profile == null)
             {
                 return NotFound(new { message = "Profile not found" });
+            }
+
+            // ✨ AUTO-SYNC: Update role from JWT token if different
+            var roleFromToken = User.FindFirst(ClaimTypes.Role)?.Value 
+                                ?? User.FindFirst("role")?.Value;
+            
+            if (!string.IsNullOrEmpty(roleFromToken) && profile.Role != roleFromToken)
+            {
+                _logger.LogInformation($"Auto-syncing role for user {userId}: {profile.Role} -> {roleFromToken}");
+                
+                // Update the role in database to match JWT
+                await _service.ChangeUserRoleAsync(userId, roleFromToken);
+                profile.Role = roleFromToken; // Update returned profile
             }
 
             return Ok(profile);
@@ -76,8 +95,14 @@ public class UserProfilesController : ControllerBase
                             ?? string.Empty;
             }
 
-            // Force default role to "teacher"
-            dto.Role = "teacher";
+            // ⚡ FIX: Get role from JWT token (set by Supabase user_metadata.role)
+            var roleFromToken = User.FindFirst(ClaimTypes.Role)?.Value 
+                                ?? User.FindFirst("role")?.Value;
+            
+            // Use role from token if available, otherwise default to "teacher"
+            dto.Role = !string.IsNullOrEmpty(roleFromToken) ? roleFromToken : "teacher";
+            
+            _logger.LogInformation($"Creating profile for user {supabaseUserId} with role: {dto.Role} (from token: {roleFromToken ?? "none"})");
 
             var profile = await _service.CreateProfileAsync(dto);
             
@@ -212,6 +237,42 @@ public class UserProfilesController : ControllerBase
         {
             _logger.LogError(ex, $"Error changing role for user {id}");
             return StatusCode(500, new { message = "An error occurred while changing role" });
+        }
+    }
+
+    // GET: api/userprofiles/{id}/activity
+    [HttpGet("{id}/activity")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> GetUserActivity(string id)
+    {
+        try
+        {
+            var (totalPapers, totalQuestions, lastGenerated, firstGenerated) = await _paperRepo.GetUserStatsAsync(id);
+            
+            var recentPapers = await _paperRepo.GetByTeacherIdAsync(id);
+            var recentPapersList = recentPapers.Take(5).Select(p => new PaperGenerationSummaryDto
+            {
+                Id = p.Id,
+                PaperTitle = p.PaperTitle,
+                TotalQuestions = p.TotalQuestions,
+                GeneratedAt = p.GeneratedAt
+            }).ToList();
+
+            var stats = new UserActivityStatsDto
+            {
+                TotalPapersGenerated = totalPapers,
+                TotalQuestionsUsed = totalQuestions,
+                LastPaperGeneratedAt = lastGenerated,
+                FirstPaperGeneratedAt = firstGenerated,
+                RecentPapers = recentPapersList
+            };
+
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error getting activity for user {id}");
+            return StatusCode(500, new { message = "An error occurred while retrieving user activity" });
         }
     }
 }

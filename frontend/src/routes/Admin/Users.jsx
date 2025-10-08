@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthProvider';
 import { 
   getAllProfiles, 
   updateProfile, 
-  changeUserRole 
+  changeUserRole,
+  getUserActivity 
 } from '../../services/userService';
 import { 
   Users as UsersIcon, 
@@ -22,7 +23,10 @@ import {
   CreditCard,
   Phone,
   Mail,
-  Calendar
+  Calendar,
+  FileText,
+  TrendingUp,
+  Clock
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -71,7 +75,7 @@ const Users = () => {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const usersPerPage = 10;
+  const usersPerPage = 5; // ⚡ OPTIMIZATION: Only 5 rows per page for better performance
 
   useEffect(() => {
     console.log('Users component - isAdmin:', isAdmin);
@@ -326,9 +330,9 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                          user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {user.role}
+                          {user.role === 'admin' ? '🟣 Admin' : '🔵 Teacher'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -460,58 +464,158 @@ const StatCard = ({ title, value, icon: Icon, gradient }) => (
 );
 
 // View User Modal Component
-const ViewUserModal = ({ user, onClose }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">User Details</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-      </div>
+const ViewUserModal = ({ user, onClose }) => {
+  const [activityStats, setActivityStats] = React.useState(null);
+  const [loadingActivity, setLoadingActivity] = React.useState(true);
 
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <DetailItem icon={UserCircle} label="Full Name" value={user.fullName} />
-          <DetailItem icon={Mail} label="Email" value={user.email} />
-          <DetailItem icon={MapPin} label="District" value={user.district} />
-          <DetailItem icon={CreditCard} label="NIC" value={user.nic} />
-          <DetailItem icon={Phone} label="Telephone" value={user.telephoneNo} />
-          <DetailItem icon={UserCircle} label="Gender" value={user.gender} />
-          <DetailItem icon={Shield} label="Role" value={user.role} badge />
-          <DetailItem icon={Calendar} label="Supabase UUID" value={user.id} mono />
+  React.useEffect(() => {
+    const fetchActivity = async () => {
+      try {
+        setLoadingActivity(true);
+        const stats = await getUserActivity(user.id);
+        setActivityStats(stats);
+      } catch (error) {
+        console.error('Error loading activity stats:', error);
+      } finally {
+        setLoadingActivity(false);
+      }
+    };
+    fetchActivity();
+  }, [user.id]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">User Details & Activity</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-2"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
-        <div className="pt-4 border-t border-gray-200">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-gray-600">Created At</p>
-              <p className="font-medium text-gray-900">{new Date(user.createdAt).toLocaleString()}</p>
+        <div className="p-6 space-y-6">
+          {/* User Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <UserCircle className="h-5 w-5" />
+              Profile Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <DetailItem icon={UserCircle} label="Full Name" value={user.fullName} />
+              <DetailItem icon={Mail} label="Email" value={user.email} />
+              <DetailItem icon={MapPin} label="District" value={user.district} />
+              <DetailItem icon={CreditCard} label="NIC" value={user.nic} />
+              <DetailItem icon={Phone} label="Telephone" value={user.telephoneNo} />
+              <DetailItem icon={UserCircle} label="Gender" value={user.gender} />
+              <DetailItem icon={Shield} label="Role" value={user.role} badge />
+              <DetailItem icon={Calendar} label="Supabase UUID" value={user.id} mono />
             </div>
-            <div>
-              <p className="text-gray-600">Last Updated</p>
-              <p className="font-medium text-gray-900">{new Date(user.updatedAt).toLocaleString()}</p>
+          </div>
+
+          {/* Activity Statistics */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Activity Statistics
+            </h3>
+            
+            {loadingActivity ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : activityStats ? (
+              <div className="space-y-4">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <p className="text-sm text-blue-900 font-medium">Papers Generated</p>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-600">{activityStats.totalPapersGenerated}</p>
+                  </div>
+
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <p className="text-sm text-green-900 font-medium">Questions Used</p>
+                    </div>
+                    <p className="text-3xl font-bold text-green-600">{activityStats.totalQuestionsUsed}</p>
+                  </div>
+
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-5 w-5 text-purple-600" />
+                      <p className="text-sm text-purple-900 font-medium">Last Activity</p>
+                    </div>
+                    <p className="text-sm font-semibold text-purple-600">
+                      {activityStats.lastPaperGeneratedAt 
+                        ? formatDistanceToNow(new Date(activityStats.lastPaperGeneratedAt), { addSuffix: true })
+                        : 'Never'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recent Papers */}
+                {activityStats.recentPapers?.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Recent Papers</h4>
+                    <div className="space-y-2">
+                      {activityStats.recentPapers.map((paper) => (
+                        <div key={paper.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{paper.paperTitle || `Paper #${paper.id}`}</p>
+                            <p className="text-sm text-gray-600">
+                              {paper.totalQuestions} questions • {formatDistanceToNow(new Date(paper.generatedAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                          <FileText className="h-5 w-5 text-gray-400" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                <p>No activity data available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Account Dates */}
+          <div className="pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-600">Account Created</p>
+                <p className="font-medium text-gray-900">{new Date(user.createdAt).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Last Profile Update</p>
+                <p className="font-medium text-gray-900">{new Date(user.updatedAt).toLocaleString()}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="p-6 border-t border-gray-200">
-        <button
-          onClick={onClose}
-          className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-        >
-          Close
-        </button>
+        <div className="p-6 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Detail Item Component
 const DetailItem = ({ icon: Icon, label, value, mono, badge }) => (

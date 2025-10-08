@@ -208,9 +208,9 @@ const TypesetUpload = () => {
               <div>
                 <p className="font-medium">1. Find the Question ID</p>
                 <p className="text-gray-600">
-                  Go to Paper Builder, search for your question, and click the 
-                  <strong className="text-gray-900"> "Copy Question ID" </strong> 
-                  button on the question card. Paste it below.
+                  Go to Manage Question section or generated paper, search for your question, and click the 
+                  <strong className="text-gray-900"> "Question ID" </strong> 
+                  link. Paste it below.
                 </p>
               </div>
             </div>
