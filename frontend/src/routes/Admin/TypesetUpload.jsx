@@ -540,52 +540,46 @@ const GenerateTypesetSection = () => {
         autoClose: false
       });
 
-      // Create a simple HTML document with the questions
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Questions for Typeset Generation</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .question { margin-bottom: 30px; page-break-inside: avoid; }
-            .question-header { font-weight: bold; color: #333; margin-bottom: 10px; }
-            .question-details { font-size: 12px; color: #666; margin-bottom: 10px; }
-            .question-image { max-width: 100%; height: auto; border: 1px solid #ddd; }
-            .page-break { page-break-after: always; }
-          </style>
-        </head>
-        <body>
-          <h1>Questions for Typeset Generation</h1>
-          <p>Generated on: ${new Date().toLocaleDateString()}</p>
-          <p>Total Questions: ${selectedQuestions.length}</p>
-          <hr/>
-          ${selectedQuestions.map((question, index) => `
-            <div class="question">
-              <div class="question-header">Question ${index + 1}</div>
-              <div class="question-details">
-                <strong>Subject:</strong> ${question.subject?.name || 'N/A'} | 
-                <strong>School:</strong> ${question.school?.name || 'N/A'} | 
-                <strong>Year:</strong> ${question.year || 'N/A'} | 
-                <strong>Exam:</strong> ${question.examType || 'N/A'}
-              </div>
-              <div class="question-details">
-                <strong>Question ID:</strong> ${question.id}
-              </div>
-              <img src="${question.fileUrl}" alt="Question ${index + 1}" class="question-image" />
-              ${index < selectedQuestions.length - 1 ? '<div class="page-break"></div>' : ''}
-            </div>
-          `).join('')}
-        </body>
-        </html>
-      `;
+      // Prepare data for Word document generation
+      const documentData = {
+        title: 'Selected Questions - Typeset Generation',
+        generatedDate: new Date().toISOString(),
+        totalQuestions: selectedQuestions.length,
+        questions: selectedQuestions.map((question, index) => ({
+          questionNumber: index + 1,
+          id: question.id,
+          subject: question.subject?.name || 'N/A',
+          school: question.school?.name || 'N/A',
+          year: question.year || 'N/A',
+          examType: question.examType || 'N/A',
+          paperType: question.paperType || 'N/A',
+          stream: question.stream || 'N/A',
+          typesetContent: question.typeset?.content || 'No typeset content available',
+          hasTypeset: !!question.typeset
+        }))
+      };
 
-      // Create and download the HTML file
-      const blob = new Blob([htmlContent], { type: 'text/html' });
+      // Send request to backend to generate Word document
+      const response = await fetch('/api/document/generate-word', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(documentData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Get the Word document as blob
+      const blob = await response.blob();
+      
+      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `typeset-questions-${new Date().toISOString().split('T')[0]}.html`;
+      link.download = `selected-questions-${new Date().toISOString().split('T')[0]}.docx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -593,22 +587,154 @@ const GenerateTypesetSection = () => {
 
       showOverlay({
         status: 'success',
-        message: `Document generated successfully with ${selectedQuestions.length} question(s)!`,
+        message: `Word document generated successfully with ${selectedQuestions.length} question(s)!`,
         autoClose: true,
         autoCloseDelay: 3000
       });
 
-      // Reset selections
+      // Reset selections after successful generation
       setSelectedQuestions([]);
 
     } catch (error) {
-      console.error('Document generation error:', error);
-      showOverlay({
-        status: 'error',
-        message: 'Failed to generate document',
-        autoClose: true,
-        autoCloseDelay: 5000
-      });
+      console.error('Word document generation error:', error);
+      
+      // Fallback to HTML generation if Word generation fails
+      console.log('Word document generation failed, falling back to HTML...');
+      
+      try {
+        // Create HTML content as fallback
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Questions for Typeset Generation</title>
+            <style>
+              body { 
+                font-family: 'Times New Roman', serif; 
+                margin: 2cm; 
+                line-height: 1.6; 
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 30px; 
+                border-bottom: 2px solid #333; 
+                padding-bottom: 20px; 
+              }
+              .question { 
+                margin-bottom: 40px; 
+                page-break-inside: avoid; 
+                border: 1px solid #ddd; 
+                padding: 20px; 
+                border-radius: 8px; 
+              }
+              .question-header { 
+                background: #f5f5f5; 
+                padding: 10px; 
+                margin: -20px -20px 15px -20px; 
+                border-radius: 8px 8px 0 0; 
+                font-weight: bold;
+                color: #333;
+              }
+              .metadata { 
+                color: #666; 
+                font-size: 0.9em; 
+                margin-bottom: 15px; 
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 5px;
+              }
+              .typeset-content { 
+                margin-top: 15px; 
+                padding: 15px; 
+                background: #fafafa; 
+                border-left: 4px solid #007bff; 
+              }
+              .question-image { 
+                max-width: 100%; 
+                height: auto; 
+                border: 1px solid #ddd; 
+                margin: 10px 0;
+              }
+              @media print {
+                .question { page-break-inside: avoid; }
+                body { margin: 1cm; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Questions for Typeset Generation</h1>
+              <p>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+              <p>Total Questions: ${selectedQuestions.length}</p>
+              <p><em>Note: Word document generation failed, using HTML format as fallback.</em></p>
+            </div>
+        `;
+
+        selectedQuestions.forEach((question, index) => {
+          htmlContent += `
+            <div class="question">
+              <div class="question-header">Question ${index + 1}</div>
+              <div class="metadata">
+                <div><strong>Subject:</strong> ${question.subject?.name || 'N/A'}</div>
+                <div><strong>School:</strong> ${question.school?.name || 'N/A'}</div>
+                <div><strong>Year:</strong> ${question.year || 'N/A'}</div>
+                <div><strong>Exam Type:</strong> ${question.examType || 'N/A'}</div>
+                <div><strong>Paper Type:</strong> ${question.paperType || 'N/A'}</div>
+                <div><strong>Stream:</strong> ${question.stream || 'N/A'}</div>
+                <div><strong>Question ID:</strong> ${question.id}</div>
+              </div>
+              
+              ${question.fileUrl ? `
+                <img src="${question.fileUrl}" alt="Question ${index + 1}" class="question-image" />
+              ` : ''}
+              
+              ${question.typeset ? `
+                <div class="typeset-content">
+                  <h3>Typeset Content:</h3>
+                  <div>${question.typeset.content || 'No typeset content available'}</div>
+                </div>
+              ` : '<p><em>No typeset available for this question.</em></p>'}
+            </div>
+          `;
+        });
+
+        htmlContent += `
+          </body>
+          </html>
+        `;
+
+        // Create and download the HTML file as fallback
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `typeset-questions-${new Date().toISOString().split('T')[0]}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showOverlay({
+          status: 'warning',
+          message: `Word generation failed. Document saved as HTML with ${selectedQuestions.length} question(s). Check console for details.`,
+          autoClose: true,
+          autoCloseDelay: 4000
+        });
+
+        // Reset selections after successful fallback generation
+        setSelectedQuestions([]);
+
+      } catch (fallbackError) {
+        console.error('Fallback HTML generation also failed:', fallbackError);
+        showOverlay({
+          status: 'error',
+          message: 'Failed to generate document in both Word and HTML formats. Please try again.',
+          autoClose: true,
+          autoCloseDelay: 5000
+        });
+      }
+
     } finally {
       setGenerating(false);
     }
@@ -629,15 +755,15 @@ const GenerateTypesetSection = () => {
 
   return (
     <div className="space-y-6">
-      {/* Selection Summary and Generate Button */}
+      {/* Selection Queue - Similar to Upload Queue */}
       {selectedQuestions.length > 0 && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Selected Questions</h2>
-              <p className="text-sm text-gray-600">
-                {selectedQuestions.length} question(s) selected for Word document generation
-              </p>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">Selection Queue</h2>
+              <span className="bg-blue-500 text-white text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">
+                {selectedQuestions.length}
+              </span>
             </div>
             <div className="flex gap-3">
               <Button
@@ -657,24 +783,57 @@ const GenerateTypesetSection = () => {
               </Button>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+          {/* Queue Items */}
+          <div className="space-y-3 max-h-96 overflow-y-auto">
             {selectedQuestions.map((question, index) => (
-              <div key={question.id} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-sm">
-                  <p className="font-medium text-blue-900">Question #{index + 1}</p>
-                  <p className="text-blue-800">
-                    <strong>Subject:</strong> {question.subject?.name || 'N/A'}
-                  </p>
-                  <p className="text-blue-800">
-                    <strong>School:</strong> {question.school?.name || 'N/A'}
-                  </p>
-                  <p className="text-xs font-mono text-blue-600 mt-1">
-                    {question.id.substring(0, 16)}...
-                  </p>
+              <div key={question.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="p-2 rounded-lg bg-green-100 text-green-600">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      Question #{index + 1} - {question.subject?.name || 'N/A'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {question.school?.name || 'N/A'} • {question.year || 'N/A'} • {question.examType || 'N/A'}
+                    </p>
+                    <p className="text-xs font-mono text-gray-400 mt-1">
+                      ID: {question.id.substring(0, 16)}...
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                    <FileText className="h-3 w-3" />
+                    Ready
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuestions(prev => prev.filter(q => q.id !== question.id))}
+                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    disabled={generating}
+                  >
+                    <Plus className="h-4 w-4 rotate-45" />
+                  </button>
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Queue Stats */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total questions: {selectedQuestions.length}</span>
+              <span>Status: Ready for generation</span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-500">
+              <div>Subjects: {new Set(selectedQuestions.map(q => q.subject?.name).filter(Boolean)).size}</div>
+              <div>Schools: {new Set(selectedQuestions.map(q => q.school?.name).filter(Boolean)).size}</div>
+              <div>Years: {new Set(selectedQuestions.map(q => q.year).filter(Boolean)).size}</div>
+              <div>Exams: {new Set(selectedQuestions.map(q => q.examType).filter(Boolean)).size}</div>
+            </div>
           </div>
         </Card>
       )}
