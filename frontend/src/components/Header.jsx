@@ -140,7 +140,7 @@ const Header = () => {
               <div className="absolute -inset-1 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur-lg transition-opacity duration-500"></div>
             </div>
             <div className="transform group-hover:translate-x-1 transition-all duration-500">
-              <h1 className="text-3xl font-bold text-gray-900">Paper Master</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Paper Maker</h1>
               <p className="text-base text-gray-600 font-medium flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Educational Paper Management

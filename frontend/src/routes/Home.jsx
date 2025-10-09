@@ -126,7 +126,7 @@ const Home = () => {
               <FileText className="w-12 h-12 text-white" />
             </div>
             <h1 className="text-6xl md:text-7xl font-black text-gray-900 mb-4">
-              Paper Master
+              Paper Maker
             </h1>
             <p className="text-2xl text-blue-600 font-semibold mb-2">
               by CVIT SOLUTIONS
