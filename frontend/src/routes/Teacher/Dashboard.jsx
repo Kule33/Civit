@@ -32,8 +32,9 @@ import { format, formatDistanceToNow } from 'date-fns';
 import Card from '../../components/ui/card.jsx';
 import Button from '../../components/ui/Button.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
-import { searchQuestions, getPaperAnalytics, getUserCount } from '../../services/questionService.js';
+import { searchQuestions, getPaperAnalytics } from '../../services/questionService.js';
 import { getTypesetByQuestionId } from '../../services/typesetService.js';
+import { getAllProfiles } from '../../services/userService.js';
 import { supabase } from '../../supabaseClient';
 import { useSubmission } from '../../context/SubmissionContext';
 import {
@@ -73,7 +74,7 @@ const Dashboard = () => {
       const token = session?.access_token;
 
       // ⚡ OPTIMIZATION: Fetch all top-level data in parallel
-      const [questionsData, analyticsResult, userResult] = await Promise.all([
+      const [questionsData, analyticsResult, profilesData] = await Promise.all([
         searchQuestions(new URLSearchParams()).catch(err => {
           console.error('Error loading questions:', err);
           return [];
@@ -82,10 +83,11 @@ const Dashboard = () => {
           console.error('Error loading paper analytics:', err);
           return null;
         }) : Promise.resolve(null),
-        token ? getUserCount().catch(err => {
-          console.error('Error loading user count:', err);
-          return { totalUsers: 0 };
-        }) : Promise.resolve({ totalUsers: 0 })
+        token ? getAllProfiles().catch(err => {
+          console.error('Error loading user profiles:', err);
+          console.error('User profiles error details:', err.response?.data || err.message);
+          return [];
+        }) : Promise.resolve([])
       ]);
 
       const questionsArray = Array.isArray(questionsData) ? questionsData : [];
@@ -97,8 +99,10 @@ const Dashboard = () => {
         setPaperAnalytics(processed);
       }
       
-      // Set total users
-      setTotalUsers(userResult.totalUsers || 0);
+      // Set total users from profiles
+      const profilesArray = Array.isArray(profilesData) ? profilesData : [];
+      console.log('📊 User profiles loaded:', profilesArray.length);
+      setTotalUsers(profilesArray.length);
 
       // Load typesets for questions that have them (secondary data)
       if (token && questionsArray.length > 0) {
@@ -240,12 +244,12 @@ const Dashboard = () => {
               subtitle={`${heroStats.withTypesets} with typesets`}
             />
             <HeroStatsCard
-              title="Users"
+              title="Registered Users"
               value={totalUsers}
               icon={UserCheck}
               color="orange"
               gradient="from-orange-500 to-amber-500"
-              subtitle="Active users"
+              subtitle="Total users"
             />
             <HeroStatsCard
               title="Papers"
