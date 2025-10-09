@@ -63,7 +63,12 @@ namespace backend.Repositories
 
             if (!string.IsNullOrWhiteSpace(searchDto.Country))
             {
-                query = query.Where(q => q.Country == searchDto.Country);
+                // Case-insensitive country search
+                // Also treat NULL or empty country as "Sri Lanka" (our default)
+                var searchCountry = searchDto.Country.ToLower();
+                query = query.Where(q => 
+                    q.Country.ToLower() == searchCountry ||
+                    (string.IsNullOrWhiteSpace(q.Country) && searchCountry == "sri lanka"));
             }
             if (!string.IsNullOrWhiteSpace(searchDto.ExamType))
             {
@@ -137,6 +142,13 @@ namespace backend.Repositories
         private async Task<bool> QuestionExists(Guid id)
         {
             return await _context.Questions.AnyAsync(e => e.Id == id);
+        }
+
+        public async Task<int> CountByUploaderAsync(string uploaderEmail)
+        {
+            return await _context.Questions
+                .Where(q => q.Uploader == uploaderEmail)
+                .CountAsync();
         }
     }
 }

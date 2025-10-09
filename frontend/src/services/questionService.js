@@ -254,11 +254,11 @@ export const searchQuestions = async (params) => {
     const cacheKey = `questions_${params?.toString() || 'all'}`;
     const now = Date.now();
     
-    // Check cache first
-    if (cache.questions.data && cache.questions.timestamp && 
-        (now - cache.questions.timestamp < cache.CACHE_DURATION)) {
-      console.log('💾 Returning cached questions');
-      return cache.questions.data;
+    // Check cache first using the specific cache key
+    if (cache[cacheKey]?.data && cache[cacheKey]?.timestamp && 
+        (now - cache[cacheKey].timestamp < cache.CACHE_DURATION)) {
+      console.log('💾 Returning cached questions for key:', cacheKey);
+      return cache[cacheKey].data;
     }
     
     // Check for in-flight request
@@ -279,8 +279,8 @@ export const searchQuestions = async (params) => {
       );
       console.log('✅ Questions searched:', response.data.length || 0, 'items');
       
-      // Update cache
-      cache.questions = { data: response.data, timestamp: now };
+      // Update cache using the specific cache key
+      cache[cacheKey] = { data: response.data, timestamp: now };
       
       return response.data;
     })();

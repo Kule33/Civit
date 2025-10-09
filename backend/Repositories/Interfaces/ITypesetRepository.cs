@@ -10,5 +10,6 @@ namespace backend.Repositories.Interfaces
         Task<Typeset?> GetByQuestionIdAsync(Guid questionId);
         Task<Typeset> UpsertAsync(Typeset typeset);
         Task<bool> DeleteAsync(Guid id);
+        Task<int> CountByUploaderAsync(string uploaderEmail);
     }
 }

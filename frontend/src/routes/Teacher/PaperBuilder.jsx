@@ -50,14 +50,23 @@ const PaperBuilder = () => {
     );
   }, [questions]);
 
-  // Use the same metadata hook as QuestionUpload
+  // Use the same metadata hook as QuestionUpload - with Sri Lanka as default
   const {
     metadata,
     availableOptions,
     updateMetadata,
     loading: metadataLoading,
     resetMetadata
-  } = useMetadata();
+  } = useMetadata({
+    country: 'sri_lanka'  // Default to Sri Lanka
+  });
+
+  // Set country to Sri Lanka by default on component mount
+  useEffect(() => {
+    if (!metadata.country) {
+      updateMetadata('country', 'sri_lanka');
+    }
+  }, [metadata.country, updateMetadata]);
 
   const handleFilterChange = (field, value) => {
     updateMetadata(field, value);
@@ -75,16 +84,22 @@ const PaperBuilder = () => {
           if (key === 'subject') {
             const subjectName = getSubjectName(value);
             params.append(key, subjectName);
+          } else if (key === 'country') {
+            // Convert country value to database format
+            const countryName = value === 'sri_lanka' ? 'Sri Lanka' : value;
+            params.append(key, countryName);
           } else {
             params.append(key, value);
           }
         }
       });
 
-      console.log('Searching with URL:', `/api/questions?${params.toString()}`);
+      console.log('🔍 Search Parameters:', Object.fromEntries(params));
+      console.log('🔍 Searching with URL:', `/api/questions?${params.toString()}`);
 
       // Use searchQuestions instead of direct axios
       const data = await searchQuestions(params);
+      console.log('✅ Search results received:', data?.length || 0, 'questions');
       setQuestions(Array.isArray(data) ? data : []);
       setSearchPerformed(true);
     } catch (error) {
@@ -352,19 +367,15 @@ const PaperBuilder = () => {
 
       {/* Top navbar-style filters using metadata hook */}
       <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          <SelectField
-            label="Country"
-            value={metadata.country}
-            onChange={(e) => handleFilterChange('country', e.target.value)}
-            options={[
-              { value: '', label: 'All Countries' },
-              { value: 'sri_lanka', label: 'Sri Lanka' },
-              { value: 'other', label: 'Other' }
-            ]}
-          />
+        {/* Country Info Banner */}
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <span className="font-semibold">📍 Searching in:</span> Sri Lanka (Default)
+          </p>
+        </div>
 
-          {/* Exam Type (only show if country is selected) */}
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Exam Type */}
           {metadata.country && (
             <SelectField
               label="Exam Type"

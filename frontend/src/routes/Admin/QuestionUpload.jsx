@@ -1,5 +1,5 @@
 // components/pages/QuestionUpload.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Upload, Image, FileText, Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
@@ -14,6 +14,7 @@ import { useMetadata } from '../../hooks/useMetadata.js';
 import { testBackendConnection, saveQuestionMetadata } from '../../services/questionService.js';
 import { useSubmission } from '../../context/SubmissionContext';
 import { uploadWithProgress } from '../../services/cloudinaryService';
+import { useAuth } from '../../context/AuthProvider';
 
 
 const QuestionUpload = () => {
@@ -23,6 +24,7 @@ const QuestionUpload = () => {
   const [isQueueMinimized, setIsQueueMinimized] = useState(true);
   
   const { showOverlay } = useSubmission();
+  const { user, userProfile } = useAuth();
 
   const {
     uploadedFiles,
@@ -44,7 +46,25 @@ const QuestionUpload = () => {
     validateMetadata,
     resetMetadata,
     refreshSchools
-  } = useMetadata();
+  } = useMetadata({
+    country: 'sri_lanka',  // Default to Sri Lanka
+    uploader: userProfile?.email || user?.email || ''
+  });
+
+  // Update uploader field when user data loads
+  useEffect(() => {
+    const uploaderEmail = userProfile?.email || user?.email;
+    if (uploaderEmail && !metadata.uploader) {
+      updateMetadata('uploader', uploaderEmail);
+    }
+  }, [user, userProfile, metadata.uploader, updateMetadata]);
+
+  // Set country to Sri Lanka by default on component mount
+  useEffect(() => {
+    if (!metadata.country) {
+      updateMetadata('country', 'sri_lanka');
+    }
+  }, [metadata.country, updateMetadata]);
 
   // Mapping from frontend values to backend database names
   const subjectValueToName = {
@@ -126,9 +146,9 @@ const QuestionUpload = () => {
         autoClose: false
       });
 
-      // Clean metadata - Convert empty strings to null and transform subject
+      // Clean metadata - Convert empty strings to null and transform values to database names
       const cleanedMetadata = {
-        country: metadata.country,
+        country: metadata.country === 'sri_lanka' ? 'Sri Lanka' : metadata.country, // Transform country value to name
         examType: metadata.examType,
         stream: metadata.stream || null,
         subject: subjectValueToName[metadata.subject] || null, // Transform subject value to name
@@ -375,24 +395,17 @@ const QuestionUpload = () => {
           <div className="lg:col-span-2">
             <Card>
               <h2 className="text-lg font-semibold mb-4">Question Metadata</h2>
+              
+              {/* Country Info Banner */}
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <span className="font-semibold">📍 Country:</span> Sri Lanka (Automatically set)
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                {/* Country Selection */}
-                <div className="col-span-2">
-                  <SelectField
-                    label="Country *"
-                    value={metadata.country}
-                    onChange={(e) => handleMetadataChange('country', e.target.value)}
-                    options={[
-                      { value: '', label: 'Select Country' },
-                      { value: 'sri_lanka', label: 'Sri Lanka' },
-                      { value: 'other', label: 'Other' }
-                    ]}
-                    required
-                  />
-                </div>
-
-                {/* Exam Type (only show if country is selected) */}
+                {/* Exam Type */}
                 {metadata.country && (
                   <div className="col-span-2">
                     <SelectField
@@ -546,11 +559,15 @@ const QuestionUpload = () => {
 
                 <div className="col-span-2">
                   <InputField
-                    label="Uploader Name"
+                    label="Uploader Email (Auto-filled)"
                     value={metadata.uploader}
                     onChange={(e) => handleMetadataChange('uploader', e.target.value)}
-                    placeholder="Your name (optional)"
+                    placeholder="Your email will be automatically filled"
+                    disabled={true}
                   />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Your email is automatically recorded as the uploader
+                  </p>
                 </div>
               </div>
             </Card>

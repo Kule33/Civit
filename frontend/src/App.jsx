@@ -13,6 +13,7 @@ import Home from './routes/Home.jsx';
 import LoginPage from './routes/Auth/LoginPage.jsx';
 import ResetPasswordPage from './routes/Auth/ResetPasswordPage.jsx';
 import CompleteProfile from './routes/CompleteProfile.jsx';
+import UserProfile from './routes/UserProfile.jsx';
 
 // ⚡ OPTIMIZATION: Lazy load heavy components (code splitting)
 const TeacherDashboard = lazy(() => import('./routes/Teacher/Dashboard.jsx'));
@@ -77,6 +78,9 @@ function App() {
             
             {/* Complete Profile - Requires authentication but not role-protected */}
             <Route path="complete-profile" element={<CompleteProfile />} />
+            
+            {/* User Profile - Requires authentication but not role-protected */}
+            <Route path="profile" element={<UserProfile />} />
 
             {/* Teacher Routes - Protected + Lazy Loaded */}
             <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>

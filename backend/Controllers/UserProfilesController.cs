@@ -16,17 +16,23 @@ public class UserProfilesController : ControllerBase
     private readonly IPaperGenerationRepository _paperRepo;
     private readonly INotificationService _notificationService;
     private readonly ILogger<UserProfilesController> _logger;
+    private readonly IQuestionRepository _questionRepo;
+    private readonly ITypesetRepository _typesetRepo;
 
     public UserProfilesController(
         IUserProfileService service, 
         IPaperGenerationRepository paperRepo,
         INotificationService notificationService,
-        ILogger<UserProfilesController> logger)
+        ILogger<UserProfilesController> logger,
+        IQuestionRepository questionRepo,
+        ITypesetRepository typesetRepo)
     {
         _service = service;
         _paperRepo = paperRepo;
         _notificationService = notificationService;
         _logger = logger;
+        _questionRepo = questionRepo;
+        _typesetRepo = typesetRepo;
     }
 
     // GET: api/userprofiles/me
@@ -69,6 +75,95 @@ public class UserProfilesController : ControllerBase
         {
             _logger.LogError(ex, "Error getting user profile");
             return StatusCode(500, new { message = "An error occurred while retrieving profile" });
+        }
+    }
+
+    // PUT: api/userprofiles/me
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateUserProfileDto dto)
+    {
+        try
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                         ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User ID not found in token" });
+            }
+
+            // Users cannot change their own role through this endpoint
+            // Role should be null or not included in the DTO
+            if (!string.IsNullOrEmpty(dto.Role))
+            {
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value 
+                               ?? User.FindFirst("role")?.Value;
+                
+                // Only admins can change roles, and they should use the dedicated role change endpoint
+                if (userRole != "admin")
+                {
+                    return BadRequest(new { message = "You cannot change your own role" });
+                }
+            }
+
+            var profile = await _service.UpdateProfileAsync(userId, dto);
+            
+            _logger.LogInformation($"User {userId} updated their own profile");
+
+            // 🔔 NOTIFICATION: Send success notification to the user
+            try
+            {
+                await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                {
+                    UserId = userId,
+                    Type = "success",
+                    Title = "Profile Updated",
+                    Message = "Your profile has been updated successfully.",
+                    Link = "/profile"
+                });
+            }
+            catch (Exception notifEx)
+            {
+                _logger.LogError(notifEx, "Failed to send user notification for profile update");
+                // Don't fail the request if notification fails
+            }
+
+            // 🔔 NOTIFICATION: Notify all admins about profile update
+            try
+            {
+                await _notificationService.CreateAdminNotificationAsync(
+                    "info",
+                    "User Profile Updated",
+                    $"{profile.FullName} ({profile.Email}) has updated their profile.",
+                    $"/admin/users"
+                );
+                _logger.LogInformation($"Admin notification sent for profile update: {profile.FullName}");
+            }
+            catch (Exception notifEx)
+            {
+                _logger.LogError(notifEx, "Failed to send admin notification for profile update");
+                // Don't fail the request if notification fails
+            }
+            
+            return Ok(profile);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating user profile");
+            return StatusCode(500, new { message = "An error occurred while updating profile" });
         }
     }
 
@@ -303,6 +398,9 @@ public class UserProfilesController : ControllerBase
                 GeneratedAt = p.GeneratedAt
             }).ToList();
 
+            // Get user profile to check role and email
+            var userProfile = await _service.GetByIdAsync(id);
+            
             var stats = new UserActivityStatsDto
             {
                 TotalPapersGenerated = totalPapers,
@@ -311,6 +409,13 @@ public class UserProfilesController : ControllerBase
                 FirstPaperGeneratedAt = firstGenerated,
                 RecentPapers = recentPapersList
             };
+
+            // Add admin-only statistics for question and typeset uploads
+            if (userProfile?.Role?.ToLower() == "admin")
+            {
+                stats.TotalQuestionsUploaded = await _questionRepo.CountByUploaderAsync(userProfile.Email);
+                stats.TotalTypesetsUploaded = await _typesetRepo.CountByUploaderAsync(userProfile.Email);
+            }
 
             return Ok(stats);
         }

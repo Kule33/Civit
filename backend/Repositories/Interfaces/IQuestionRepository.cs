@@ -15,5 +15,6 @@ namespace backend.Repositories.Interfaces
         Task<IEnumerable<Question>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto);
         Task<bool> UpdateQuestionAsync(Question question);
         Task<bool> DeleteQuestionAsync(Guid id);
+        Task<int> CountByUploaderAsync(string uploaderEmail);
     }
 }

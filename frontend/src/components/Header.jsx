@@ -1,7 +1,7 @@
 // frontend/src/components/layouts/Header.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom'; // Import useNavigate
-import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, BookOpen, Menu, X, LogOut, LogIn, Users } from 'lucide-react';
+import { Bell, User, Home, LayoutDashboard, FileText, CreditCard, Upload, Database, Type, BookOpen, Menu, X, LogOut, LogIn, Users, Shield, UserCircle2, UserRound, Crown } from 'lucide-react';
 import { useAuth } from '../context/AuthProvider'; // Import useAuth
 import NotificationDropdown from './NotificationDropdown';
 import { getUnreadCount, getUserNotifications } from '../services/notificationService';
@@ -178,19 +178,37 @@ const Header = () => {
                   )}
                 </div>
 
-                <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-50/80 backdrop-blur-sm hover:bg-gray-100/80 transition-all duration-500 shadow-sm border border-gray-200/50 group hover:scale-105">
-                  <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    {userProfile?.fullName ? userProfile.fullName.substring(0, 2).toUpperCase() : (user.email ? user.email.substring(0, 2).toUpperCase() : 'US')}
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-50/80 backdrop-blur-sm hover:bg-gray-100/80 transition-all duration-500 shadow-sm border border-gray-200/50 group hover:scale-105 cursor-pointer"
+                  title="View Profile"
+                >
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg group-hover:scale-110 transition-transform duration-300 ${
+                    userProfile?.role === 'admin' 
+                      ? 'bg-gradient-to-br from-purple-500 to-pink-500' 
+                      : 'bg-gradient-to-br from-blue-500 to-cyan-500'
+                  }`}>
+                    {userProfile?.role === 'admin' ? (
+                      <Crown className="h-5 w-5" />
+                    ) : userProfile?.gender === 'Male' ? (
+                      <UserRound className="h-5 w-5" />
+                    ) : userProfile?.gender === 'Female' ? (
+                      <UserCircle2 className="h-5 w-5" />
+                    ) : (
+                      <User className="h-5 w-5" />
+                    )}
                   </div>
                   <div>
                     <span className="text-base font-semibold text-gray-900">
                       {userProfile?.fullName || user.email || 'Guest'}
                     </span>
-                    <p className="text-sm text-gray-600 font-medium">
-                      {isAdmin ? 'Administrator' : isTeacher ? 'Teacher' : 'User'}
-                    </p>
+                    {userProfile?.role && (
+                      <p className="text-sm text-gray-600 font-medium">
+                        {userProfile.role === 'admin' ? 'Administrator' : 'Teacher'}
+                      </p>
+                    )}
                   </div>
-                </div>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="relative p-3 text-gray-600 hover:text-red-600 hover:bg-gray-100/80 rounded-xl transition-all duration-500 backdrop-blur-sm border border-gray-200/50 group hover:scale-110"
@@ -273,7 +291,7 @@ const Header = () => {
       {user && (
         <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-gray-200/50 transition-all duration-500 ${isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
           <nav className="px-6 py-4 space-y-2">
-            {navigationItems.map((item, index) => (
+            {navigationItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
