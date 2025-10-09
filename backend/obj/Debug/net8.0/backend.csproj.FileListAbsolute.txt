@@ -301,3 +301,6 @@ D:\Civit\Civit\backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 D:\Civit\Civit\backend\bin\Debug\net8.0\System.IO.Packaging.dll
 D:\Civit\Civit\backend\bin\Debug\net8.0\DocumentFormat.OpenXml.dll
 D:\Civit\Civit\backend\bin\Debug\net8.0\DocumentFormat.OpenXml.Framework.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\DocumentFormat.OpenXml.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\DocumentFormat.OpenXml.Framework.dll
+D:\JV\Civit\backend\bin\Debug\net8.0\System.IO.Packaging.dll
