@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'; // Import Protecte
 // ⚡ OPTIMIZATION: Eager load only essential components
 import Home from './routes/Home.jsx';
 import LoginPage from './routes/Auth/LoginPage.jsx';
+import ResetPasswordPage from './routes/Auth/ResetPasswordPage.jsx';
 import CompleteProfile from './routes/CompleteProfile.jsx';
 
 // ⚡ OPTIMIZATION: Lazy load heavy components (code splitting)
@@ -66,6 +67,9 @@ function App() {
     <SubmissionProvider>
       <Suspense fallback={<PageLoader />}>
         <Routes>
+          {/* Reset Password - Standalone page without navigation (no MainLayout) */}
+          <Route path="reset-password" element={<ResetPasswordPage />} />
+          
           {/* Public routes that everyone can access */}
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Home />} />

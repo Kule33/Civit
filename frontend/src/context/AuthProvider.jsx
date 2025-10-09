@@ -174,6 +174,7 @@ export const AuthProvider = ({ children }) => {
         data: {
           role: 'teacher', // <--- CRITICAL FIX: Always 'teacher'
         },
+        emailRedirectTo: `${window.location.origin}/login`, // Redirect to login after email confirmation
       },
     });
     setLoading(false);
@@ -202,6 +203,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // TODO: Configure in Supabase Dashboard:
+  // 1. Go to Authentication → URL Configuration
+  // 2. Add redirect URLs:
+  //    - Development: http://localhost:5173/reset-password
+  //    - Production: https://your-domain.com/reset-password
+  // 3. (Optional) Customize email template in Authentication → Email Templates
+  const resetPasswordRequest = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+  };
+
+  const updatePassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+  };
+
   const refreshProfile = async () => {
     if (!user) return;
     setProfileLoading(true);
@@ -226,6 +247,8 @@ export const AuthProvider = ({ children }) => {
     login,
     signup,
     logout,
+    resetPasswordRequest,
+    updatePassword,
     refreshProfile,
   };
 
