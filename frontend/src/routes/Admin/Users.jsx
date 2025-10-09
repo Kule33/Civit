@@ -26,7 +26,8 @@ import {
   Calendar,
   FileText,
   TrendingUp,
-  Clock
+  Clock,
+  Upload
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -463,10 +464,22 @@ const StatCard = ({ title, value, icon: Icon, gradient }) => (
   </div>
 );
 
-// View User Modal Component
+// View User Modal Component (Matches UserProfile.jsx layout with edit functionality)
 const ViewUserModal = ({ user, onClose }) => {
   const [activityStats, setActivityStats] = React.useState(null);
   const [loadingActivity, setLoadingActivity] = React.useState(true);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState('');
+  const [formData, setFormData] = React.useState({
+    fullName: user.fullName,
+    district: user.district,
+    nic: user.nic,
+    telephoneNo: user.telephoneNo,
+    gender: user.gender
+  });
+  const [errors, setErrors] = React.useState({});
 
   React.useEffect(() => {
     const fetchActivity = async () => {
@@ -483,158 +496,458 @@ const ViewUserModal = ({ user, onClose }) => {
     fetchActivity();
   }, [user.id]);
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
+    } else if (formData.fullName.length < 2 || formData.fullName.length > 100) {
+      newErrors.fullName = 'Full name must be between 2 and 100 characters';
+    } else if (!/^[a-zA-Z\s]+$/.test(formData.fullName)) {
+      newErrors.fullName = 'Full name must contain only letters and spaces';
+    }
+
+    if (!formData.district) {
+      newErrors.district = 'District is required';
+    }
+
+    if (!formData.nic.trim()) {
+      newErrors.nic = 'NIC is required';
+    } else if (!/^([0-9]{9}[VvXx]|[0-9]{12})$/.test(formData.nic)) {
+      newErrors.nic = 'Invalid NIC format. Use 9 digits + V or 12 digits';
+    }
+
+    if (!formData.telephoneNo.trim()) {
+      newErrors.telephoneNo = 'Phone number is required';
+    } else if (!/^\+94[0-9]{9}$/.test(formData.telephoneNo)) {
+      newErrors.telephoneNo = 'Phone must be +94 followed by 9 digits (e.g., +94771234567)';
+    }
+
+    if (!formData.gender) {
+      newErrors.gender = 'Gender is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setError('');
+    setSuccess('');
+    setErrors({});
+    setFormData({
+      fullName: user.fullName,
+      district: user.district,
+      nic: user.nic,
+      telephoneNo: user.telephoneNo,
+      gender: user.gender
+    });
+  };
+
+  const handleSave = async () => {
+    setError('');
+    setSuccess('');
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const updatedData = {
+        fullName: formData.fullName.trim(),
+        district: formData.district,
+        nic: formData.nic.trim(),
+        telephoneNo: formData.telephoneNo.trim(),
+        gender: formData.gender
+      };
+
+      await updateProfile(user.id, updatedData);
+      
+      // Update local user object
+      Object.assign(user, updatedData);
+      
+      setIsEditing(false);
+      setSuccess('Profile updated successfully!');
+      
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError(err.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">User Details & Activity</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2"
-            >
-              <X className="h-6 w-6" />
-            </button>
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-2xl font-bold text-white">
+                  {user.fullName ? user.fullName.substring(0, 2).toUpperCase() : 'US'}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{user.fullName || 'User Profile'}</h2>
+                <p className="text-sm text-gray-600">{user.email}</p>
+                <span className={`inline-block mt-1 px-3 py-1 text-xs font-semibold rounded-full ${
+                  user.role === 'admin' 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {user.role === 'admin' ? 'Administrator' : 'Teacher'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {!isEditing && (
+                <button
+                  onClick={handleEdit}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 p-2"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* User Information */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <UserCircle className="h-5 w-5" />
-              Profile Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <DetailItem icon={UserCircle} label="Full Name" value={user.fullName} />
-              <DetailItem icon={Mail} label="Email" value={user.email} />
-              <DetailItem icon={MapPin} label="District" value={user.district} />
-              <DetailItem icon={CreditCard} label="NIC" value={user.nic} />
-              <DetailItem icon={Phone} label="Telephone" value={user.telephoneNo} />
-              <DetailItem icon={UserCircle} label="Gender" value={user.gender} />
-              <DetailItem icon={Shield} label="Role" value={user.role} badge />
-              <DetailItem icon={Calendar} label="Supabase UUID" value={user.id} mono />
+        <div className="p-6">
+          {/* Success Message */}
+          {success && (
+            <div className="mb-6 p-4 bg-green-100 border border-green-300 text-green-700 rounded-xl flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              {success}
             </div>
-          </div>
+          )}
 
-          {/* Activity Statistics */}
-          <div className="pt-6 border-t border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Activity Statistics
-            </h3>
-            
-            {loadingActivity ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : activityStats ? (
-              <div className="space-y-4">
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                      <p className="text-sm text-blue-900 font-medium">Papers Generated</p>
-                    </div>
-                    <p className="text-3xl font-bold text-blue-600">{activityStats.totalPapersGenerated}</p>
-                  </div>
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-100 border border-red-300 text-red-700 rounded-xl flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              {error}
+            </div>
+          )}
 
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <p className="text-sm text-green-900 font-medium">Questions Used</p>
-                    </div>
-                    <p className="text-3xl font-bold text-green-600">{activityStats.totalQuestionsUsed}</p>
-                  </div>
-
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-5 w-5 text-purple-600" />
-                      <p className="text-sm text-purple-900 font-medium">Last Activity</p>
-                    </div>
-                    <p className="text-sm font-semibold text-purple-600">
-                      {activityStats.lastPaperGeneratedAt 
-                        ? formatDistanceToNow(new Date(activityStats.lastPaperGeneratedAt), { addSuffix: true })
-                        : 'Never'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Recent Papers */}
-                {activityStats.recentPapers?.length > 0 && (
+          {/* Profile Details */}
+          <div className="bg-white rounded-xl p-6 border border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              {/* Full Name */}
+              <div>
+                <label className="text-gray-600 text-sm">Full Name</label>
+                {isEditing ? (
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Recent Papers</h4>
-                    <div className="space-y-2">
-                      {activityStats.recentPapers.map((paper) => (
-                        <div key={paper.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{paper.paperTitle || `Paper #${paper.id}`}</p>
-                            <p className="text-sm text-gray-600">
-                              {paper.totalQuestions} questions • {formatDistanceToNow(new Date(paper.generatedAt), { addSuffix: true })}
-                            </p>
-                          </div>
-                          <FileText className="h-5 w-5 text-gray-400" />
-                        </div>
-                      ))}
-                    </div>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                      className={`w-full mt-1 px-3 py-2 rounded-lg border ${
+                        errors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    />
+                    {errors.fullName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+                    )}
                   </div>
+                ) : (
+                  <p className="font-medium text-gray-900 mt-1">{user.fullName || 'Not provided'}</p>
                 )}
               </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                <p>No activity data available</p>
+
+              {/* Email */}
+              <div>
+                <label className="text-gray-600 text-sm">Email</label>
+                <p className="font-medium text-gray-900 mt-1">{user.email || 'Not provided'}</p>
+              </div>
+
+              {/* District */}
+              <div>
+                <label className="text-gray-600 text-sm">District</label>
+                {isEditing ? (
+                  <div>
+                    <select
+                      name="district"
+                      value={formData.district}
+                      onChange={handleChange}
+                      className={`w-full mt-1 px-3 py-2 rounded-lg border ${
+                        errors.district ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    >
+                      <option value="">Select District</option>
+                      {districts.map(district => (
+                        <option key={district} value={district}>{district}</option>
+                      ))}
+                    </select>
+                    {errors.district && (
+                      <p className="mt-1 text-sm text-red-600">{errors.district}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-medium text-gray-900 mt-1">{user.district || 'Not provided'}</p>
+                )}
+              </div>
+
+              {/* NIC */}
+              <div>
+                <label className="text-gray-600 text-sm">NIC</label>
+                {isEditing ? (
+                  <div>
+                    <input
+                      type="text"
+                      name="nic"
+                      value={formData.nic}
+                      onChange={handleChange}
+                      className={`w-full mt-1 px-3 py-2 rounded-lg border ${
+                        errors.nic ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    />
+                    {errors.nic && (
+                      <p className="mt-1 text-sm text-red-600">{errors.nic}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-medium text-gray-900 mt-1">{user.nic || 'Not provided'}</p>
+                )}
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label className="text-gray-600 text-sm">Telephone</label>
+                {isEditing ? (
+                  <div>
+                    <input
+                      type="text"
+                      name="telephoneNo"
+                      value={formData.telephoneNo}
+                      onChange={handleChange}
+                      className={`w-full mt-1 px-3 py-2 rounded-lg border ${
+                        errors.telephoneNo ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    />
+                    {errors.telephoneNo && (
+                      <p className="mt-1 text-sm text-red-600">{errors.telephoneNo}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-medium text-gray-900 mt-1">{user.telephoneNo || 'Not provided'}</p>
+                )}
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="text-gray-600 text-sm">Gender</label>
+                {isEditing ? (
+                  <div>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className={`w-full mt-1 px-3 py-2 rounded-lg border ${
+                        errors.gender ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {errors.gender && (
+                      <p className="mt-1 text-sm text-red-600">{errors.gender}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-medium text-gray-900 mt-1">{user.gender || 'Not provided'}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Activity Statistics */}
+            <div className="mt-8 pt-8 border-t border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Activity Statistics
+              </h3>
+            
+              {loadingActivity ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : activityStats ? (
+                <div className="space-y-4">
+                  {/* Stats Grid */}
+                  <div className={`grid grid-cols-1 gap-4 ${user.role === 'admin' ? 'md:grid-cols-5' : 'md:grid-cols-3'}`}>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                        <p className="text-sm text-blue-900 font-medium">Papers Generated</p>
+                      </div>
+                      <p className="text-3xl font-bold text-blue-600">{activityStats.totalPapersGenerated}</p>
+                    </div>
+
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <p className="text-sm text-green-900 font-medium">Questions Used</p>
+                      </div>
+                      <p className="text-3xl font-bold text-green-600">{activityStats.totalQuestionsUsed}</p>
+                    </div>
+
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-5 w-5 text-purple-600" />
+                        <p className="text-sm text-purple-900 font-medium">Last Activity</p>
+                      </div>
+                      <p className="text-sm font-semibold text-purple-600">
+                        {activityStats.lastPaperGeneratedAt 
+                          ? formatDistanceToNow(new Date(activityStats.lastPaperGeneratedAt), { addSuffix: true })
+                          : 'Never'}
+                      </p>
+                    </div>
+
+                    {/* Admin-only statistics */}
+                    {user.role === 'admin' && (
+                      <>
+                        <div className="bg-orange-50 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Upload className="h-5 w-5 text-orange-600" />
+                            <p className="text-sm text-orange-900 font-medium">Questions Uploaded</p>
+                          </div>
+                          <p className="text-3xl font-bold text-orange-600">{activityStats.totalQuestionsUploaded || 0}</p>
+                        </div>
+
+                        <div className="bg-indigo-50 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Upload className="h-5 w-5 text-indigo-600" />
+                            <p className="text-sm text-indigo-900 font-medium">Typesets Uploaded</p>
+                          </div>
+                          <p className="text-3xl font-bold text-indigo-600">{activityStats.totalTypesetsUploaded || 0}</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* All Generated Papers */}
+                  {activityStats.recentPapers?.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">All Generated Papers</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {activityStats.recentPapers.map((paper) => (
+                          <div key={paper.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">{paper.paperTitle || `Paper #${paper.id}`}</p>
+                              <p className="text-sm text-gray-600">
+                                {paper.totalQuestions} questions • {formatDistanceToNow(new Date(paper.generatedAt), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <FileText className="h-5 w-5 text-gray-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Account Dates */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Account Created</p>
+                        <p className="font-medium text-gray-900">{new Date(user.createdAt).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Last Profile Update</p>
+                        <p className="font-medium text-gray-900">{new Date(user.updatedAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>No activity data available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Edit Mode Actions */}
+            {isEditing && (
+              <div className="flex justify-end space-x-4 mt-8 pt-8 border-t border-gray-200">
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="flex items-center space-x-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all duration-300 disabled:opacity-50"
+                >
+                  <X className="h-5 w-5" />
+                  <span>Cancel</span>
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Account Dates */}
-          <div className="pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-600">Account Created</p>
-                <p className="font-medium text-gray-900">{new Date(user.createdAt).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Last Profile Update</p>
-                <p className="font-medium text-gray-900">{new Date(user.updatedAt).toLocaleString()}</p>
-              </div>
-            </div>
+        {/* Footer - Only show Close button when not editing */}
+        {!isEditing && (
+          <div className="p-6 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+            >
+              Close
+            </button>
           </div>
-        </div>
-
-        <div className="p-6 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-          >
-            Close
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
 };
-
-// Detail Item Component
-const DetailItem = ({ icon: Icon, label, value, mono, badge }) => (
-  <div>
-    <div className="flex items-center gap-2 mb-2">
-      <Icon className="h-4 w-4 text-gray-400" />
-      <p className="text-sm text-gray-600">{label}</p>
-    </div>
-    {badge ? (
-      <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${
-        value === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-      }`}>
-        {value}
-      </span>
-    ) : (
-      <p className={`font-medium text-gray-900 ${mono ? 'font-mono text-xs' : ''}`}>{value}</p>
-    )}
-  </div>
-);
 
 // Edit User Modal Component
 const EditUserModal = ({ user, onClose, onSave }) => {

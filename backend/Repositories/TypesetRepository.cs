@@ -68,5 +68,14 @@ namespace backend.Repositories
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<int> CountByUploaderAsync(string uploaderEmail)
+        {
+            // Typesets don't have an uploader field, so we need to join with Questions
+            return await _context.Typesets
+                .Include(t => t.Question)
+                .Where(t => t.Question.Uploader == uploaderEmail && t.IsActive)
+                .CountAsync();
+        }
     }
 }

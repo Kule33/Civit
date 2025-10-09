@@ -86,7 +86,31 @@ export const createProfile = async (profileData) => {
 };
 
 /**
- * Update user profile
+ * Update current user's own profile
+ * @param {Object} profileData - Updated profile data
+ * @returns {Promise<Object>} Updated profile
+ */
+export const updateMyProfile = async (profileData) => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.put(`${API_BASE_URL}/me`, profileData, authHeaders);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      throw new Error('Profile not found');
+    }
+    if (error.response?.status === 409) {
+      throw new Error(error.response.data.message || 'NIC already exists');
+    }
+    if (error.response?.status === 400) {
+      throw new Error(error.response.data.message || 'Invalid profile data');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Update user profile (admin only, or user updating their own profile)
  * @param {string} id - User profile ID
  * @param {Object} profileData - Updated profile data
  * @returns {Promise<Object>} Updated profile

@@ -7,6 +7,10 @@ public class UserActivityStatsDto
     public DateTime? LastPaperGeneratedAt { get; set; }
     public DateTime? FirstPaperGeneratedAt { get; set; }
     public List<PaperGenerationSummaryDto> RecentPapers { get; set; } = new();
+    
+    // Admin-only statistics
+    public int? TotalQuestionsUploaded { get; set; }
+    public int? TotalTypesetsUploaded { get; set; }
 }
 
 public class PaperGenerationSummaryDto

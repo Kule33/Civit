@@ -56,6 +56,20 @@ namespace backend.Controllers
 
             Console.WriteLine($"Backend received: FileUrl='{uploadDto.FileUrl}', FilePublicId='{uploadDto.FilePublicId}' (Batch: {batchIndex}/{batchTotal})");
 
+            // Automatically set the uploader email from the authenticated user's JWT token
+            var uploaderEmail = User.FindFirst(ClaimTypes.Email)?.Value 
+                             ?? User.FindFirst("email")?.Value;
+            
+            if (string.IsNullOrEmpty(uploaderEmail))
+            {
+                _logger.LogWarning("Could not extract email from JWT token");
+            }
+            else
+            {
+                uploadDto.Uploader = uploaderEmail; // Override with authenticated user's email
+                _logger.LogInformation($"Setting uploader to: {uploaderEmail}");
+            }
+
             try
             {
                 var result = await _questionService.UploadQuestionAsync(uploadDto);
