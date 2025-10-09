@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using backend.Services.Interfaces;
+using backend.DTOs;
 using System.Security.Claims;
 
 namespace backend.Controllers
@@ -11,13 +12,19 @@ namespace backend.Controllers
     public class PaperGenerationsController : ControllerBase
     {
         private readonly IPaperGenerationService _service;
+        private readonly INotificationService _notificationService;
+        private readonly IUserProfileService _userProfileService;
         private readonly ILogger<PaperGenerationsController> _logger;
 
         public PaperGenerationsController(
             IPaperGenerationService service,
+            INotificationService notificationService,
+            IUserProfileService userProfileService,
             ILogger<PaperGenerationsController> logger)
         {
             _service = service;
+            _notificationService = notificationService;
+            _userProfileService = userProfileService;
             _logger = logger;
         }
 
@@ -50,6 +57,38 @@ namespace backend.Controllers
                     request.QuestionIds.Count
                 );
 
+                // 🔔 NOTIFICATION: Notify user about successful paper generation
+                try
+                {
+                    var userProfile = await _userProfileService.GetByIdAsync(userId);
+                    var userName = userProfile?.FullName ?? userEmail;
+
+                    // Notification for the user
+                    await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                    {
+                        UserId = userId,
+                        Type = "success",
+                        Title = "Paper Generated Successfully",
+                        Message = $"Your exam paper '{request.PaperTitle ?? "Untitled"}' with {request.QuestionIds.Count} questions has been generated successfully!",
+                        Link = "/teacher/dashboard"
+                    });
+
+                    // Notification for all admins
+                    await _notificationService.CreateAdminNotificationAsync(
+                        "info",
+                        "New Paper Generated",
+                        $"{userName} generated a paper: '{request.PaperTitle ?? "Untitled"}' ({request.QuestionIds.Count} questions)",
+                        "/teacher/dashboard"
+                    );
+
+                    _logger.LogInformation($"Notifications sent for paper generation by {userName}");
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "Failed to send paper generation notifications");
+                    // Don't fail the request if notification fails
+                }
+
                 return Ok(new
                 {
                     success = true,
@@ -65,6 +104,31 @@ namespace backend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error logging paper generation");
+
+                // 🔔 NOTIFICATION: Notify user about paper generation failure
+                try
+                {
+                    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                        ?? User.FindFirst("sub")?.Value;
+                    
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                        {
+                            UserId = userId,
+                            Type = "error",
+                            Title = "Paper Generation Failed",
+                            Message = $"Failed to generate exam paper. Please try again or contact support if the problem persists.",
+                            Link = "/teacher/paper-builder"
+                        });
+                        _logger.LogInformation("Failure notification sent for paper generation");
+                    }
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "Failed to send paper generation failure notification");
+                }
+
                 return StatusCode(500, new { message = "Failed to log paper generation", error = ex.Message });
             }
         }

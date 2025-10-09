@@ -334,7 +334,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 };
 
 // Question Row Component for Generate Typeset
-const QuestionRowForTypeset = React.memo(({ question, onSelectQuestion }) => {
+const QuestionRowForTypeset = React.memo(({ question, onSelectQuestion, isSelected }) => {
   const { showOverlay } = useSubmission();
   
   const handleCopyId = () => {
@@ -347,12 +347,20 @@ const QuestionRowForTypeset = React.memo(({ question, onSelectQuestion }) => {
     });
   };
 
-  const handleGenerateTypeset = () => {
+  const handleToggleSelect = () => {
     onSelectQuestion(question);
   };
 
   return (
     <tr key={question.id} className="hover:bg-gray-50 transition-colors">
+      <td className="px-4 py-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={handleToggleSelect}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+      </td>
       <td className="px-4 py-3">
         <button
           onClick={handleCopyId}
@@ -375,17 +383,10 @@ const QuestionRowForTypeset = React.memo(({ question, onSelectQuestion }) => {
         {question.examType || 'N/A'}
       </td>
       <td className="px-4 py-3">
-        {question.typesetAvailable ? (
-          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
-            <FileText className="h-3 w-3" />
-            Available
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">
-            <Plus className="h-3 w-3" />
-            Needed
-          </span>
-        )}
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+          <FileText className="h-3 w-3" />
+          Available
+        </span>
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2">
@@ -400,10 +401,10 @@ const QuestionRowForTypeset = React.memo(({ question, onSelectQuestion }) => {
             variant="primary"
             size="small"
             icon={Plus}
-            onClick={handleGenerateTypeset}
+            onClick={handleToggleSelect}
             className="text-xs"
           >
-            Generate
+            Select
           </Button>
         </div>
       </td>
@@ -420,9 +421,8 @@ const GenerateTypesetSection = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [generating, setGenerating] = useState(false);
   const { showOverlay } = useSubmission();
   const pageSize = 10;
 
@@ -462,12 +462,15 @@ const GenerateTypesetSection = () => {
     }
   };
 
-  // Filter questions based on search
+  // Filter questions that have typesets and apply search
   const filteredQuestions = React.useMemo(() => {
-    const searchLower = debouncedSearchTerm.toLowerCase();
-    if (!searchLower) return questions;
+    // First filter questions that have typesets available
+    const questionsWithTypesets = questions.filter(q => q.typesetAvailable);
     
-    return questions.filter(q => {
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    if (!searchLower) return questionsWithTypesets;
+    
+    return questionsWithTypesets.filter(q => {
       return (
         q.id?.toLowerCase().includes(searchLower) ||
         q.subject?.name?.toLowerCase().includes(searchLower) ||
@@ -489,137 +492,125 @@ const GenerateTypesetSection = () => {
   }, [filteredQuestions, currentPage, pageSize]);
 
   const handleSelectQuestion = (question) => {
-    setSelectedQuestion(question);
+    setSelectedQuestions(prev => {
+      const isSelected = prev.find(q => q.id === question.id);
+      if (isSelected) {
+        return prev.filter(q => q.id !== question.id);
+      } else {
+        return [...prev, question];
+      }
+    });
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const allowedTypes = [
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/pdf'
-      ];
-      
-      if (!allowedTypes.includes(file.type)) {
-        showOverlay({
-          status: 'error',
-          message: 'Only .doc, .docx, and .pdf files are allowed',
-          autoClose: true,
-          autoCloseDelay: 3000
-        });
-        return;
-      }
-
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        showOverlay({
-          status: 'error',
-          message: 'File size must be less than 10MB',
-          autoClose: true,
-          autoCloseDelay: 3000
-        });
-        return;
-      }
-
-      setSelectedFile(file);
+  const handleSelectAllFiltered = () => {
+    const allSelected = paginatedQuestions.every(q => 
+      selectedQuestions.find(sq => sq.id === q.id)
+    );
+    
+    if (allSelected) {
+      // Deselect all from current page
+      setSelectedQuestions(prev => 
+        prev.filter(sq => !paginatedQuestions.find(q => q.id === sq.id))
+      );
+    } else {
+      // Select all from current page
+      const newSelections = paginatedQuestions.filter(q => 
+        !selectedQuestions.find(sq => sq.id === q.id)
+      );
+      setSelectedQuestions(prev => [...prev, ...newSelections]);
     }
   };
 
-  const handleUpload = async () => {
+  const handleGenerateWordDocument = async () => {
+    if (selectedQuestions.length === 0) {
+      showOverlay({
+        status: 'error',
+        message: 'Please select at least one question to generate document',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+      return;
+    }
+
     try {
-      if (!selectedQuestion) {
-        showOverlay({
-          status: 'error',
-          message: 'Please select a question first',
-          autoClose: true,
-          autoCloseDelay: 3000
-        });
-        return;
-      }
-
-      if (!selectedFile) {
-        showOverlay({
-          status: 'error',
-          message: 'Please select a file to upload',
-          autoClose: true,
-          autoCloseDelay: 3000
-        });
-        return;
-      }
-
-      setUploading(true);
+      setGenerating(true);
       showOverlay({
         status: 'loading',
-        message: 'Uploading typeset file to Cloudinary...',
+        message: `Generating Word document with ${selectedQuestions.length} question(s)...`,
         autoClose: false
       });
 
-      // Get Supabase JWT token
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      // Create a simple HTML document with the questions
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Questions for Typeset Generation</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .question { margin-bottom: 30px; page-break-inside: avoid; }
+            .question-header { font-weight: bold; color: #333; margin-bottom: 10px; }
+            .question-details { font-size: 12px; color: #666; margin-bottom: 10px; }
+            .question-image { max-width: 100%; height: auto; border: 1px solid #ddd; }
+            .page-break { page-break-after: always; }
+          </style>
+        </head>
+        <body>
+          <h1>Questions for Typeset Generation</h1>
+          <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <p>Total Questions: ${selectedQuestions.length}</p>
+          <hr/>
+          ${selectedQuestions.map((question, index) => `
+            <div class="question">
+              <div class="question-header">Question ${index + 1}</div>
+              <div class="question-details">
+                <strong>Subject:</strong> ${question.subject?.name || 'N/A'} | 
+                <strong>School:</strong> ${question.school?.name || 'N/A'} | 
+                <strong>Year:</strong> ${question.year || 'N/A'} | 
+                <strong>Exam:</strong> ${question.examType || 'N/A'}
+              </div>
+              <div class="question-details">
+                <strong>Question ID:</strong> ${question.id}
+              </div>
+              <img src="${question.fileUrl}" alt="Question ${index + 1}" class="question-image" />
+              ${index < selectedQuestions.length - 1 ? '<div class="page-break"></div>' : ''}
+            </div>
+          `).join('')}
+        </body>
+        </html>
+      `;
 
-      if (!token) {
-        throw new Error('Not authenticated. Please log in.');
-      }
-
-      // Upload file to Cloudinary as raw (DOCX/PDF)
-      const cloudinaryResult = await uploadRawWithProgress(
-        selectedFile,
-        'typesets',
-        (progress) => {
-          showOverlay({
-            status: 'loading',
-            message: `Uploading to Cloudinary... ${progress}%`,
-            autoClose: false
-          });
-        }
-      );
-
-      showOverlay({
-        status: 'loading',
-        message: 'Saving typeset reference to database...',
-        autoClose: false
-      });
-
-      // Save typeset reference to backend
-      const result = await upsertTypeset(
-        {
-          questionId: selectedQuestion.id,
-          fileUrl: cloudinaryResult.secureUrl,
-          filePublicId: cloudinaryResult.publicId,
-          fileName: cloudinaryResult.fileName
-        },
-        token
-      );
+      // Create and download the HTML file
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `typeset-questions-${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       showOverlay({
         status: 'success',
-        message: `Typeset uploaded successfully! Version: ${result.version}`,
+        message: `Document generated successfully with ${selectedQuestions.length} question(s)!`,
         autoClose: true,
         autoCloseDelay: 3000
       });
 
-      // Reset form and refresh questions
-      setSelectedQuestion(null);
-      setSelectedFile(null);
-      const fileInput = document.getElementById('generate-typeset-file-input');
-      if (fileInput) {
-        fileInput.value = '';
-      }
-      await loadAllQuestions();
+      // Reset selections
+      setSelectedQuestions([]);
 
     } catch (error) {
-      console.error('Typeset upload error:', error);
+      console.error('Document generation error:', error);
       showOverlay({
         status: 'error',
-        message: error.response?.data?.message || error.message || 'Failed to upload typeset',
+        message: 'Failed to generate document',
         autoClose: true,
         autoCloseDelay: 5000
       });
     } finally {
-      setUploading(false);
+      setGenerating(false);
     }
   };
 
@@ -638,79 +629,52 @@ const GenerateTypesetSection = () => {
 
   return (
     <div className="space-y-6">
-      {selectedQuestion && (
+      {/* Selection Summary and Generate Button */}
+      {selectedQuestions.length > 0 && (
         <Card>
-          <h2 className="text-lg font-semibold mb-4">Upload Typeset for Selected Question</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="font-medium text-blue-900 mb-2">Selected Question:</h3>
-                <p className="text-sm text-blue-800 mb-1">
-                  <strong>Subject:</strong> {selectedQuestion.subject?.name || 'N/A'}
-                </p>
-                <p className="text-sm text-blue-800 mb-1">
-                  <strong>School:</strong> {selectedQuestion.school?.name || 'N/A'}
-                </p>
-                <p className="text-sm text-blue-800 mb-1">
-                  <strong>Year:</strong> {selectedQuestion.year || 'N/A'}
-                </p>
-                <p className="text-xs font-mono text-blue-600">
-                  ID: {selectedQuestion.id}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Typeset File (.doc, .docx, .pdf) *
-                </label>
-                <input
-                  id="generate-typeset-file-input"
-                  type="file"
-                  accept=".doc,.docx,.pdf"
-                  onChange={handleFileChange}
-                  disabled={uploading}
-                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {selectedFile && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Selected Questions</h2>
+              <p className="text-sm text-gray-600">
+                {selectedQuestions.length} question(s) selected for Word document generation
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedQuestions([])}
+                disabled={generating}
+              >
+                Clear All
+              </Button>
+              <Button
+                variant="primary"
+                icon={FileText}
+                onClick={handleGenerateWordDocument}
+                disabled={generating}
+              >
+                {generating ? 'Generating...' : 'Generate Word Document'}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {selectedQuestions.map((question, index) => (
+              <div key={question.id} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm">
+                  <p className="font-medium text-blue-900">Question #{index + 1}</p>
+                  <p className="text-blue-800">
+                    <strong>Subject:</strong> {question.subject?.name || 'N/A'}
                   </p>
-                )}
+                  <p className="text-blue-800">
+                    <strong>School:</strong> {question.school?.name || 'N/A'}
+                  </p>
+                  <p className="text-xs font-mono text-blue-600 mt-1">
+                    {question.id.substring(0, 16)}...
+                  </p>
+                </div>
               </div>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="primary"
-                  size="large"
-                  icon={Upload}
-                  onClick={handleUpload}
-                  disabled={uploading || !selectedFile}
-                  className="flex-1"
-                >
-                  {uploading ? 'Uploading...' : 'Upload Typeset'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedQuestion(null);
-                    setSelectedFile(null);
-                    const fileInput = document.getElementById('generate-typeset-file-input');
-                    if (fileInput) fileInput.value = '';
-                  }}
-                  disabled={uploading}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-center">
-              <img
-                src={selectedQuestion.fileUrl}
-                alt="Question Preview"
-                className="max-w-full max-h-96 object-contain rounded-lg shadow-lg border"
-              />
-            </div>
+            ))}
           </div>
         </Card>
       )}
@@ -735,16 +699,16 @@ const GenerateTypesetSection = () => {
       {/* Questions List */}
       <Card>
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Select a Question to Generate Typeset</h2>
-          <p className="text-sm text-gray-600">Click "Generate" next to a question to upload its typeset document.</p>
+          <h2 className="text-lg font-semibold text-gray-900">Select Questions to Generate Word Document</h2>
+          <p className="text-sm text-gray-600">Select questions with typesets to generate a Word document for typesetting purposes.</p>
         </div>
         
         {filteredQuestions.length === 0 ? (
           <div className="text-center py-12">
-            <Plus className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Questions Found</h3>
+            <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Questions with Typesets Found</h3>
             <p className="text-gray-600">
-              {searchTerm ? 'Try adjusting your search criteria' : 'No questions available for typeset generation'}
+              {searchTerm ? 'Try adjusting your search criteria' : 'No questions with typesets available for document generation'}
             </p>
           </div>
         ) : (
@@ -752,6 +716,16 @@ const GenerateTypesetSection = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={paginatedQuestions.length > 0 && paginatedQuestions.every(q => 
+                        selectedQuestions.find(sq => sq.id === q.id)
+                      )}
+                      onChange={handleSelectAllFiltered}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Question ID</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Subject</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">School</th>
@@ -767,6 +741,7 @@ const GenerateTypesetSection = () => {
                     key={question.id} 
                     question={question} 
                     onSelectQuestion={handleSelectQuestion}
+                    isSelected={!!selectedQuestions.find(sq => sq.id === question.id)}
                   />
                 ))}
               </tbody>
@@ -784,24 +759,24 @@ const GenerateTypesetSection = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">{questions.length}</p>
-            <p className="text-sm text-gray-600">Total Questions</p>
-          </div>
-        </Card>
-        <Card>
-          <div className="text-center">
             <p className="text-2xl font-bold text-green-600">
               {questions.filter(q => q.typesetAvailable).length}
             </p>
-            <p className="text-sm text-gray-600">With Typesets</p>
+            <p className="text-sm text-gray-600">Questions with Typesets</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
-            <p className="text-2xl font-bold text-orange-600">
-              {questions.filter(q => !q.typesetAvailable).length}
+            <p className="text-2xl font-bold text-blue-600">{selectedQuestions.length}</p>
+            <p className="text-sm text-gray-600">Selected for Document</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-purple-600">
+              {filteredQuestions.length}
             </p>
-            <p className="text-sm text-gray-600">Need Typesets</p>
+            <p className="text-sm text-gray-600">Available for Selection</p>
           </div>
         </Card>
       </div>
