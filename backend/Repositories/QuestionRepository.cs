@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq; // Important: Add this
 using backend.DTOs; // Important: Add this
+using backend.Helpers; // For SharedSubjects helper
 
 namespace backend.Repositories
 {
@@ -74,10 +75,29 @@ namespace backend.Repositories
             {
                 query = query.Where(q => q.ExamType == searchDto.ExamType);
             }
+
+            // Special handling for shared subjects (Physics & Chemistry)
+            // These subjects are shared between Physical and Biological streams
+            bool isSharedSubject = !string.IsNullOrWhiteSpace(searchDto.Subject) && 
+                                   SharedSubjects.IsSharedSubject(searchDto.Subject);
+
             if (!string.IsNullOrWhiteSpace(searchDto.Stream))
             {
-                query = query.Where(q => q.Stream == searchDto.Stream);
+                // If the subject is shared (Physics or Chemistry), include both Physical and Biological streams
+                if (isSharedSubject)
+                {
+                    // For shared subjects, query questions from both Physical and Biological streams
+                    query = query.Where(q => 
+                        q.Stream == "physical" || 
+                        q.Stream == "biological");
+                }
+                else
+                {
+                    // For non-shared subjects, use exact stream match
+                    query = query.Where(q => q.Stream == searchDto.Stream);
+                }
             }
+
             if (!string.IsNullOrWhiteSpace(searchDto.Subject))
             {
                 // Ensure Subject is loaded before trying to access its Name
