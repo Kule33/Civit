@@ -72,6 +72,30 @@ namespace backend.Controllers
             }
         }
 
+        [HttpPost("signed-url")]
+        public IActionResult GenerateSignedUrl([FromBody] SignedUrlRequestDto request)
+        {
+            try
+            {
+                var resourceType = request.ResourceType ?? "raw";
+                
+                // Generate authenticated URL using Cloudinary's API
+                var url = _cloudinary.Api.UrlImgUp
+                    .ResourceType(resourceType)
+                    .Signed(true)
+                    .BuildUrl(request.PublicId);
+
+                Console.WriteLine($"Generated signed URL for {request.PublicId}: {url}");
+                return Ok(new { signedUrl = url });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating signed URL: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return StatusCode(500, $"Error generating signed URL: {ex.Message}");
+            }
+        }
+
         private string GenerateFolderPath(CloudinarySignatureRequestDto request)
         {
             var pathParts = new List<string>();

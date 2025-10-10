@@ -28,4 +28,11 @@ namespace backend.DTOs
         public string Format { get; set; } = string.Empty;
         public long Bytes { get; set; }
     }
+
+    public class SignedUrlRequestDto
+    {
+        public string PublicId { get; set; } = string.Empty;
+        public string? ResourceType { get; set; } = "raw"; // Default to raw for PDFs
+        public int? ExpirationSeconds { get; set; } = 3600; // Default 1 hour
+    }
 }

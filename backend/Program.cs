@@ -209,6 +209,9 @@ builder.Services.AddScoped<ITypesetRepository, TypesetRepository>();
 builder.Services.AddScoped<IPaperGenerationRepository, PaperGenerationRepository>();
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IPaperRepository, PaperRepository>();
+builder.Services.AddScoped<IMarkingRepository, MarkingRepository>();
+builder.Services.AddScoped<IPaperDownloadRepository, PaperDownloadRepository>();
 
 // Register Services
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
@@ -216,6 +219,8 @@ builder.Services.AddScoped<ITypesetService, TypesetService>();
 builder.Services.AddScoped<IPaperGenerationService, PaperGenerationService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPaperService, PaperService>();
+builder.Services.AddScoped<IMarkingService, MarkingService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();
