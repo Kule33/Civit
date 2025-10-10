@@ -14,6 +14,9 @@ namespace backend.Data
         public DbSet<PaperGeneration> PaperGenerations { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Paper> Papers { get; set; }
+        public DbSet<Marking> Markings { get; set; }
+        public DbSet<PaperDownload> PaperDownloads { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -85,6 +88,56 @@ namespace backend.Data
                 
                 entity.Property(e => e.UpdatedAt)
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
+
+            // Configure Paper entity
+            modelBuilder.Entity<Paper>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Id).ValueGeneratedOnAdd();
+                
+                // Configure Subject relationship
+                entity.HasOne(p => p.Subject)
+                    .WithMany()
+                    .HasForeignKey(p => p.SubjectId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Configure School relationship  
+                entity.HasOne(p => p.School)
+                    .WithMany()
+                    .HasForeignKey(p => p.SchoolId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure Marking entity
+            modelBuilder.Entity<Marking>(entity =>
+            {
+                entity.HasKey(m => m.Id);
+                entity.Property(m => m.Id).ValueGeneratedOnAdd();
+                
+                // Configure Subject relationship
+                entity.HasOne(m => m.Subject)
+                    .WithMany()
+                    .HasForeignKey(m => m.SubjectId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Configure School relationship  
+                entity.HasOne(m => m.School)
+                    .WithMany()
+                    .HasForeignKey(m => m.SchoolId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure PaperDownload entity
+            modelBuilder.Entity<PaperDownload>(entity =>
+            {
+                entity.HasKey(pd => pd.Id);
+                
+                // Indexes for efficient querying
+                entity.HasIndex(pd => pd.UserId);
+                entity.HasIndex(pd => pd.ResourceId);
+                entity.HasIndex(pd => pd.ResourceType);
+                entity.HasIndex(pd => pd.DownloadedAt);
             });
         }
     }

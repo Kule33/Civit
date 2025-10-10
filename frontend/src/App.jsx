@@ -19,6 +19,7 @@ import UserProfile from './routes/UserProfile.jsx';
 const TeacherDashboard = lazy(() => import('./routes/Teacher/Dashboard.jsx'));
 const PaperBuilder = lazy(() => import('./routes/Teacher/PaperBuilder.jsx'));
 const TeacherPayment = lazy(() => import('./routes/Teacher/TeacherPayment.jsx'));
+const Papers = lazy(() => import('./pages/Papers.jsx'));
 
 const AdminQuestionUpload = lazy(() => import('./routes/Admin/QuestionUpload.jsx'));
 const AdminManageQuestions = lazy(() => import('./routes/Admin/ManageQuestions.jsx'));
@@ -87,6 +88,7 @@ function App() {
               <Route path="teacher/dashboard" element={<TeacherDashboard />} />
               <Route path="teacher/paper-builder" element={<PaperBuilder />} />
               <Route path="teacher/payment" element={<TeacherPayment />} />
+              <Route path="papers" element={<Papers />} />
             </Route>
 
             {/* Admin Routes - Protected + Lazy Loaded */}
