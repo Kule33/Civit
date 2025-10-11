@@ -2,8 +2,10 @@ using backend.Services.DTOs;
 using backend.Services.Interfaces;
 using backend.Repositories.Interfaces;
 using backend.DTOs;
+using backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace backend.Controllers;
@@ -18,6 +20,7 @@ public class UserProfilesController : ControllerBase
     private readonly ILogger<UserProfilesController> _logger;
     private readonly IQuestionRepository _questionRepo;
     private readonly ITypesetRepository _typesetRepo;
+    private readonly AppDbContext _context;
 
     public UserProfilesController(
         IUserProfileService service, 
@@ -25,7 +28,8 @@ public class UserProfilesController : ControllerBase
         INotificationService notificationService,
         ILogger<UserProfilesController> logger,
         IQuestionRepository questionRepo,
-        ITypesetRepository typesetRepo)
+        ITypesetRepository typesetRepo,
+        AppDbContext context)
     {
         _service = service;
         _paperRepo = paperRepo;
@@ -33,6 +37,7 @@ public class UserProfilesController : ControllerBase
         _logger = logger;
         _questionRepo = questionRepo;
         _typesetRepo = typesetRepo;
+        _context = context;
     }
 
     // GET: api/userprofiles/me
@@ -380,10 +385,39 @@ public class UserProfilesController : ControllerBase
         }
     }
 
+    // GET: api/userprofiles/me/activity
+    [HttpGet("me/activity")]
+    [Authorize]
+    public async Task<IActionResult> GetMyActivity()
+    {
+        try
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                         ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User ID not found in token" });
+            }
+
+            return await GetUserActivityInternal(userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting own activity");
+            return StatusCode(500, new { message = "An error occurred while retrieving your activity" });
+        }
+    }
+
     // GET: api/userprofiles/{id}/activity
     [HttpGet("{id}/activity")]
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> GetUserActivity(string id)
+    {
+        return await GetUserActivityInternal(id);
+    }
+
+    private async Task<IActionResult> GetUserActivityInternal(string id)
     {
         try
         {
@@ -401,13 +435,42 @@ public class UserProfilesController : ControllerBase
             // Get user profile to check role and email
             var userProfile = await _service.GetByIdAsync(id);
             
+            // Get download statistics
+            var paperDownloads = await _context.PaperDownloads
+                .Where(pd => pd.UserId == id && pd.ResourceType == "paper")
+                .CountAsync();
+                
+            var markingDownloads = await _context.PaperDownloads
+                .Where(pd => pd.UserId == id && pd.ResourceType == "marking")
+                .CountAsync();
+                
+            var recentDownloads = await _context.PaperDownloads
+                .Where(pd => pd.UserId == id)
+                .OrderByDescending(pd => pd.DownloadedAt)
+                .Take(5)
+                .Select(pd => new DownloadSummaryDto
+                {
+                    Id = pd.Id,
+                    ResourceId = pd.ResourceId,
+                    ResourceType = pd.ResourceType,
+                    DownloadedAt = pd.DownloadedAt,
+                    Country = pd.Country,
+                    Subject = pd.Subject,
+                    Year = pd.Year
+                })
+                .ToListAsync();
+            
             var stats = new UserActivityStatsDto
             {
                 TotalPapersGenerated = totalPapers,
                 TotalQuestionsUsed = totalQuestions,
                 LastPaperGeneratedAt = lastGenerated,
                 FirstPaperGeneratedAt = firstGenerated,
-                RecentPapers = recentPapersList
+                RecentPapers = recentPapersList,
+                TotalPapersDownloaded = paperDownloads,
+                TotalMarkingsDownloaded = markingDownloads,
+                TotalDownloads = paperDownloads + markingDownloads,
+                RecentDownloads = recentDownloads
             };
 
             // Add admin-only statistics for question and typeset uploads
@@ -415,6 +478,62 @@ public class UserProfilesController : ControllerBase
             {
                 stats.TotalQuestionsUploaded = await _questionRepo.CountByUploaderAsync(userProfile.Email);
                 stats.TotalTypesetsUploaded = await _typesetRepo.CountByUploaderAsync(userProfile.Email);
+                
+                // Get paper and marking upload statistics
+                var paperUploadsCount = await _context.Papers
+                    .Where(p => p.UploadedBy == id)
+                    .CountAsync();
+                    
+                var markingUploadsCount = await _context.Markings
+                    .Where(m => m.UploadedBy == id)
+                    .CountAsync();
+                
+                stats.TotalPapersUploaded = paperUploadsCount;
+                stats.TotalMarkingsUploaded = markingUploadsCount;
+                
+                // Get recent uploads (papers and markings combined)
+                var recentPaperUploads = await _context.Papers
+                    .Where(p => p.UploadedBy == id)
+                    .OrderByDescending(p => p.UploadDate)
+                    .Take(5)
+                    .Select(p => new UploadSummaryDto
+                    {
+                        Id = p.Id,
+                        ResourceType = "paper",
+                        UploadDate = p.UploadDate,
+                        Country = p.Country,
+                        Subject = p.Subject != null ? p.Subject.Name : null,
+                        Year = p.Year,
+                        ExamType = p.ExamType,
+                        FileName = p.FileName
+                    })
+                    .ToListAsync();
+                    
+                var recentMarkingUploads = await _context.Markings
+                    .Where(m => m.UploadedBy == id)
+                    .OrderByDescending(m => m.UploadDate)
+                    .Take(5)
+                    .Select(m => new UploadSummaryDto
+                    {
+                        Id = m.Id,
+                        ResourceType = "marking",
+                        UploadDate = m.UploadDate,
+                        Country = m.Country,
+                        Subject = m.Subject != null ? m.Subject.Name : null,
+                        Year = m.Year,
+                        ExamType = m.ExamType,
+                        FileName = m.FileName
+                    })
+                    .ToListAsync();
+                    
+                // Combine and sort by upload date
+                var allRecentUploads = recentPaperUploads
+                    .Concat(recentMarkingUploads)
+                    .OrderByDescending(u => u.UploadDate)
+                    .Take(5)
+                    .ToList();
+                    
+                stats.RecentUploads = allRecentUploads;
             }
 
             return Ok(stats);

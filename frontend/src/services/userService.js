@@ -201,7 +201,22 @@ export const changeUserRole = async (id, newRole) => {
 };
 
 /**
- * Get user activity statistics
+ * Get current user's activity statistics
+ * @returns {Promise<Object>} User activity stats
+ */
+export const getMyActivity = async () => {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const response = await axios.get(`${API_BASE_URL}/me/activity`, authHeaders);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching own activity:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get user activity statistics (admin only)
  * @param {string} userId - User ID to get activity for
  * @returns {Promise<Object>} User activity stats
  */
