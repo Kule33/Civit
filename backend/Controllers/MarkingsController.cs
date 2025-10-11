@@ -1,5 +1,6 @@
 using backend.DTOs;
 using backend.Services.Interfaces;
+using backend.Services.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -17,15 +18,18 @@ namespace backend.Controllers
     {
         private readonly IMarkingService _markingService;
         private readonly INotificationService _notificationService;
+        private readonly IUserProfileService _userProfileService;
         private readonly ILogger<MarkingsController> _logger;
 
         public MarkingsController(
             IMarkingService markingService,
             INotificationService notificationService,
+            IUserProfileService userProfileService,
             ILogger<MarkingsController> logger)
         {
             _markingService = markingService;
             _notificationService = notificationService;
+            _userProfileService = userProfileService;
             _logger = logger;
         }
 
@@ -43,9 +47,12 @@ namespace backend.Controllers
                 return BadRequest("Upload data is required");
             }
 
-            // Automatically set the uploader email from the authenticated user's JWT token
+            // Automatically set the uploader email and user ID from the authenticated user's JWT token
             var uploaderEmail = User.FindFirst(ClaimTypes.Email)?.Value 
                              ?? User.FindFirst("email")?.Value;
+            
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                      ?? User.FindFirst("sub")?.Value;
             
             if (string.IsNullOrEmpty(uploaderEmail))
             {
@@ -56,15 +63,16 @@ namespace backend.Controllers
                 uploadDto.Uploader = uploaderEmail;
                 _logger.LogInformation($"Setting uploader to: {uploaderEmail}");
             }
+            
+            if (!string.IsNullOrEmpty(userId))
+            {
+                uploadDto.UploadedBy = userId;
+                _logger.LogInformation($"Setting uploadedBy to: {userId}");
+            }
 
             try
             {
                 var result = await _markingService.UploadMarkingAsync(uploadDto);
-                
-                // Get user ID from JWT token for notifications
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                          ?? User.FindFirst("sub")?.Value 
-                          ?? User.FindFirst("userId")?.Value;
 
                 if (!string.IsNullOrEmpty(userId) && result != null)
                 {
@@ -246,6 +254,48 @@ namespace backend.Controllers
                 );
 
                 _logger.LogInformation($"Tracked download of marking {id} by user {userId}");
+
+                // Create success notification for the user
+                try
+                {
+                    // Get user profile to show full name in notifications
+                    var userProfile = await _userProfileService.GetByIdAsync(userId);
+                    var userName = userProfile?.FullName ?? userEmail;
+
+                    var markingDetails = $"{marking.Subject?.Name} {FormatExamType(marking.ExamType)}";
+                    if (marking.Year.HasValue)
+                    {
+                        markingDetails += $" {marking.Year}";
+                    }
+                    if (!string.IsNullOrEmpty(marking.School?.Name))
+                    {
+                        markingDetails += $" - {marking.School.Name}";
+                    }
+
+                    await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                    {
+                        UserId = userId,
+                        Type = "success",
+                        Title = "Marking Scheme Downloaded Successfully",
+                        Message = $"You have successfully downloaded {markingDetails} marking scheme",
+                        Link = "/papers"
+                    });
+
+                    // Notify admins about the download
+                    await _notificationService.CreateAdminNotificationAsync(
+                        "info",
+                        "Marking Scheme Downloaded",
+                        $"{userName} downloaded {markingDetails} marking scheme",
+                        "/admin/users"
+                    );
+
+                    _logger.LogInformation($"Created download notifications for marking {id}");
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "Failed to create download notifications but continuing operation");
+                }
+
                 return Ok(new { message = "Download tracked successfully" });
             }
             catch (Exception ex)

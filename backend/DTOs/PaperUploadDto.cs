@@ -15,6 +15,7 @@ namespace backend.DTOs
         public string? Term { get; set; }
         public string? SchoolName { get; set; }
         public string? Uploader { get; set; }
+        public string? UploadedBy { get; set; } // User ID
 
         // Cloudinary upload results
         public string FileUrl { get; set; } = string.Empty;

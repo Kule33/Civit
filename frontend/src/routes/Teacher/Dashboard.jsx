@@ -34,6 +34,8 @@ import Button from '../../components/ui/Button.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { searchQuestions, getPaperAnalytics } from '../../services/questionService.js';
 import { getTypesetByQuestionId } from '../../services/typesetService.js';
+import { searchPapers } from '../../services/paperService.js';
+import { searchMarkings } from '../../services/markingService.js';
 import { getAllProfiles } from '../../services/userService.js';
 import { supabase } from '../../supabaseClient';
 import { useSubmission } from '../../context/SubmissionContext';
@@ -55,6 +57,8 @@ const Dashboard = () => {
   const [questions, setQuestions] = useState([]);
   const [typesets, setTypesets] = useState([]);
   const [paperAnalytics, setPaperAnalytics] = useState(null);
+  const [papers, setPapers] = useState([]);
+  const [markings, setMarkings] = useState([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(false);
   const { showOverlay } = useSubmission();
@@ -73,8 +77,8 @@ const Dashboard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      // ⚡ OPTIMIZATION: Fetch all top-level data in parallel
-      const [questionsData, analyticsResult, profilesData] = await Promise.all([
+            // ⚡ OPTIMIZATION: Fetch all top-level data in parallel
+      const [questionsData, analyticsResult, profilesData, papersData, markingsData] = await Promise.all([
         searchQuestions(new URLSearchParams()).catch(err => {
           console.error('Error loading questions:', err);
           return [];
@@ -85,7 +89,14 @@ const Dashboard = () => {
         }) : Promise.resolve(null),
         token ? getAllProfiles().catch(err => {
           console.error('Error loading user profiles:', err);
-          console.error('User profiles error details:', err.response?.data || err.message);
+          return [];
+        }) : Promise.resolve([]),
+        token ? searchPapers({}).catch(err => {
+          console.error('Error loading papers:', err);
+          return [];
+        }) : Promise.resolve([]),
+        token ? searchMarkings({}).catch(err => {
+          console.error('Error loading markings:', err);
           return [];
         }) : Promise.resolve([])
       ]);
@@ -93,10 +104,17 @@ const Dashboard = () => {
       const questionsArray = Array.isArray(questionsData) ? questionsData : [];
       setQuestions(questionsArray);
       
+      // Set papers and markings
+      const papersArray = Array.isArray(papersData) ? papersData : [];
+      const markingsArray = Array.isArray(markingsData) ? markingsData : [];
+      setPapers(papersArray);
+      setMarkings(markingsArray);
+      console.log('📄 Papers loaded:', papersArray.length);
+      console.log('📝 Markings loaded:', markingsArray.length);
+      
       // Process paper analytics
       if (analyticsResult) {
-        const processed = processPaperAnalytics(analyticsResult);
-        setPaperAnalytics(processed);
+        setPaperAnalytics(processPaperAnalytics(analyticsResult));
       }
       
       // Set total users from profiles
@@ -173,6 +191,16 @@ const Dashboard = () => {
   const recentActivity = useMemo(() => 
     getRecentActivity(filteredQuestions, filteredTypesets, 5),
     [filteredQuestions, filteredTypesets]
+  );
+
+  const papersSubjectData = useMemo(() => 
+    groupBySubject(papers),
+    [papers]
+  );
+
+  const markingsSubjectData = useMemo(() => 
+    groupBySubject(markings),
+    [markings]
   );
 
   if (loading) {
@@ -280,6 +308,117 @@ const Dashboard = () => {
 
       {/* Recent Activity */}
       <RecentActivityTable activity={recentActivity} />
+
+      {/* Papers & Markings Analytics Section */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <FileText className="h-6 w-6 text-blue-600" />
+          Papers & Markings Library
+        </h2>
+      </div>
+
+      {/* Papers & Markings Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <HeroStatsCard
+          title="Papers Uploaded"
+          value={papers.length}
+          icon={FileText}
+          color="blue"
+          gradient="from-blue-500 to-cyan-500"
+          subtitle="Total papers"
+        />
+        <HeroStatsCard
+          title="Markings Uploaded"
+          value={markings.length}
+          icon={FileCheck}
+          color="green"
+          gradient="from-green-500 to-emerald-500"
+          subtitle="Total marking schemes"
+        />
+        <HeroStatsCard
+          title="Total Resources"
+          value={papers.length + markings.length}
+          icon={BookOpen}
+          color="purple"
+          gradient="from-purple-500 to-pink-500"
+          subtitle="Papers + Markings"
+        />
+      </div>
+
+      {/* Papers & Markings Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Papers by Subject
+            </h3>
+            {papersSubjectData.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-600">No papers uploaded yet</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={papersSubjectData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {papersSubjectData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={BLUE_COLORS[index % BLUE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-green-600" />
+              Markings by Subject
+            </h3>
+            {markingsSubjectData.length === 0 ? (
+              <div className="text-center py-12">
+                <FileCheck className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-600">No markings uploaded yet</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={markingsSubjectData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {markingsSubjectData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={EXAM_COLORS[index % EXAM_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+      </div>
 
       {/* Paper Builder Analytics Section */}
       {paperAnalytics && (

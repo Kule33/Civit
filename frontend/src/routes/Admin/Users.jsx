@@ -27,7 +27,8 @@ import {
   FileText,
   TrendingUp,
   Clock,
-  Upload
+  Upload,
+  Download
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -807,7 +808,7 @@ const ViewUserModal = ({ user, onClose }) => {
               ) : activityStats ? (
                 <div className="space-y-4">
                   {/* Stats Grid */}
-                  <div className={`grid grid-cols-1 gap-4 ${user.role === 'admin' ? 'md:grid-cols-5' : 'md:grid-cols-3'}`}>
+                  <div className={`grid grid-cols-1 gap-4 ${user.role === 'admin' ? 'md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'md:grid-cols-3 lg:grid-cols-5'}`}>
                     <div className="bg-blue-50 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <FileText className="h-5 w-5 text-blue-600" />
@@ -836,6 +837,22 @@ const ViewUserModal = ({ user, onClose }) => {
                       </p>
                     </div>
 
+                    <div className="bg-cyan-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Download className="h-5 w-5 text-cyan-600" />
+                        <p className="text-sm text-cyan-900 font-medium">Papers Downloaded</p>
+                      </div>
+                      <p className="text-3xl font-bold text-cyan-600">{activityStats.totalPapersDownloaded || 0}</p>
+                    </div>
+
+                    <div className="bg-teal-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Download className="h-5 w-5 text-teal-600" />
+                        <p className="text-sm text-teal-900 font-medium">Markings Downloaded</p>
+                      </div>
+                      <p className="text-3xl font-bold text-teal-600">{activityStats.totalMarkingsDownloaded || 0}</p>
+                    </div>
+
                     {/* Admin-only statistics */}
                     {user.role === 'admin' && (
                       <>
@@ -853,6 +870,22 @@ const ViewUserModal = ({ user, onClose }) => {
                             <p className="text-sm text-indigo-900 font-medium">Typesets Uploaded</p>
                           </div>
                           <p className="text-3xl font-bold text-indigo-600">{activityStats.totalTypesetsUploaded || 0}</p>
+                        </div>
+
+                        <div className="bg-rose-50 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Upload className="h-5 w-5 text-rose-600" />
+                            <p className="text-sm text-rose-900 font-medium">Papers Uploaded</p>
+                          </div>
+                          <p className="text-3xl font-bold text-rose-600">{activityStats.totalPapersUploaded || 0}</p>
+                        </div>
+
+                        <div className="bg-pink-50 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Upload className="h-5 w-5 text-pink-600" />
+                            <p className="text-sm text-pink-900 font-medium">Markings Uploaded</p>
+                          </div>
+                          <p className="text-3xl font-bold text-pink-600">{activityStats.totalMarkingsUploaded || 0}</p>
                         </div>
                       </>
                     )}
@@ -872,6 +905,68 @@ const ViewUserModal = ({ user, onClose }) => {
                               </p>
                             </div>
                             <FileText className="h-5 w-5 text-gray-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent Downloads */}
+                  {activityStats.recentDownloads?.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">Recent Downloads</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {activityStats.recentDownloads.map((download) => (
+                          <div key={download.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                  download.resourceType === 'paper' 
+                                    ? 'bg-cyan-100 text-cyan-800' 
+                                    : 'bg-teal-100 text-teal-800'
+                                }`}>
+                                  {download.resourceType === 'paper' ? 'Paper' : 'Marking'}
+                                </span>
+                                <p className="font-medium text-gray-900">
+                                  {download.subject || 'Unknown'} - {download.country || 'Unknown'} {download.year || ''}
+                                </p>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                Downloaded {formatDistanceToNow(new Date(download.downloadedAt), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <Download className="h-5 w-5 text-gray-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent Uploads (Admin Only) */}
+                  {user.role === 'admin' && activityStats.recentUploads?.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">Recent Uploads</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {activityStats.recentUploads.map((upload) => (
+                          <div key={upload.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                  upload.resourceType === 'paper' 
+                                    ? 'bg-rose-100 text-rose-800' 
+                                    : 'bg-pink-100 text-pink-800'
+                                }`}>
+                                  {upload.resourceType === 'paper' ? 'Paper' : 'Marking'}
+                                </span>
+                                <p className="font-medium text-gray-900">
+                                  {upload.subject || 'Unknown'} - {upload.country || 'Unknown'} {upload.year || ''}
+                                </p>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                {upload.examType} • Uploaded {formatDistanceToNow(new Date(upload.uploadDate), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <Upload className="h-5 w-5 text-gray-400" />
                           </div>
                         ))}
                       </div>
