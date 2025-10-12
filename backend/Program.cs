@@ -46,6 +46,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configure AppSettings
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
+builder.Services.Configure<TempFilesSettings>(builder.Configuration.GetSection("TempFilesSettings"));
 
 // Configure SupabaseSettings - this will correctly pick up from environment variables now
 builder.Services.Configure<SupabaseSettings>(builder.Configuration.GetSection("Supabase"));
@@ -212,6 +213,7 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IPaperRepository, PaperRepository>();
 builder.Services.AddScoped<IMarkingRepository, MarkingRepository>();
 builder.Services.AddScoped<IPaperDownloadRepository, PaperDownloadRepository>();
+builder.Services.AddScoped<ITypesetRequestRepository, TypesetRequestRepository>();
 
 // Register Services
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
@@ -221,6 +223,9 @@ builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPaperService, PaperService>();
 builder.Services.AddScoped<IMarkingService, MarkingService>();
+builder.Services.AddScoped<ITempFileService, TempFileService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ITypesetRequestService, TypesetRequestService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();

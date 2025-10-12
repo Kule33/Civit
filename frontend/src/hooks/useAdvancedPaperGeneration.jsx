@@ -290,6 +290,7 @@ export const useAdvancedPaperGeneration = () => {
    * @param {Array} selectedQuestions - Array of selected question objects in order
    * @param {Function} onSuccess - Callback function called on successful generation
    * @param {Function} onError - Callback function called on error
+   * @returns {Promise<Object>} Object containing pdfBlob, fileName, and paperMetadata
    */
   const generatePDF = useCallback(async (selectedQuestions, onSuccess, onError) => {
     try {
@@ -321,16 +322,36 @@ export const useAdvancedPaperGeneration = () => {
       // Clean up
       URL.revokeObjectURL(url);
 
+      // Extract paper metadata from questions
+      const paperMetadata = {
+        subject: selectedQuestions[0]?.subject || 'N/A',
+        examType: selectedQuestions[0]?.examType || 'N/A',
+        stream: selectedQuestions[0]?.stream || 'N/A',
+        year: selectedQuestions[0]?.year || 'N/A',
+        term: selectedQuestions[0]?.term || 'N/A',
+        questionCount: selectedQuestions.length,
+        generatedDate: new Date().toISOString(),
+        questionIds: selectedQuestions.map(q => q.id)
+      };
+
       // Call success callback
       if (onSuccess) {
         onSuccess(filename, selectedQuestions.length);
       }
+
+      // Return PDF data for potential typeset request
+      return {
+        pdfBlob,
+        fileName: filename,
+        paperMetadata
+      };
 
     } catch (error) {
       console.error('Error generating PDF:', error);
       if (onError) {
         onError(error.message || 'Failed to generate PDF');
       }
+      throw error;
     }
   }, [createPDFDocument]);
 

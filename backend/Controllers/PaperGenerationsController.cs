@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using backend.Services.Interfaces;
+using backend.Services;
 using backend.DTOs;
 using System.Security.Claims;
 
@@ -14,17 +15,20 @@ namespace backend.Controllers
         private readonly IPaperGenerationService _service;
         private readonly INotificationService _notificationService;
         private readonly IUserProfileService _userProfileService;
+        private readonly ITempFileService _tempFileService;
         private readonly ILogger<PaperGenerationsController> _logger;
 
         public PaperGenerationsController(
             IPaperGenerationService service,
             INotificationService notificationService,
             IUserProfileService userProfileService,
+            ITempFileService tempFileService,
             ILogger<PaperGenerationsController> logger)
         {
             _service = service;
             _notificationService = notificationService;
             _userProfileService = userProfileService;
+            _tempFileService = tempFileService;
             _logger = logger;
         }
 
@@ -186,11 +190,63 @@ namespace backend.Controllers
                 return StatusCode(500, new { message = "Failed to fetch generations", error = ex.Message });
             }
         }
+
+        // New endpoint: Save generated PDF to temp storage
+        [HttpPost("save-temp")]
+        public async Task<IActionResult> SavePdfToTemp([FromBody] SavePdfToTempRequest request)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                    ?? User.FindFirst("sub")?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "User information not found in token" });
+                }
+
+                // Convert base64 PDF data to byte array
+                byte[] pdfBytes;
+                try
+                {
+                    pdfBytes = Convert.FromBase64String(request.PdfBase64);
+                }
+                catch (FormatException)
+                {
+                    return BadRequest(new { message = "Invalid PDF data format" });
+                }
+
+                // Save to temp storage
+                var tempFilePath = await _tempFileService.SaveTempPdfAsync(pdfBytes, userId);
+
+                _logger.LogInformation($"Saved PDF to temp storage for user {userId}: {tempFilePath}");
+
+                return Ok(new
+                {
+                    success = true,
+                    tempFilePath = tempFilePath,
+                    fileName = request.FileName ?? "generated_paper.pdf",
+                    paperMetadata = request.PaperMetadata
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving PDF to temp storage");
+                return StatusCode(500, new { message = "Failed to save PDF to temp storage", error = ex.Message });
+            }
+        }
     }
 
     public class LogPaperGenerationRequest
     {
         public List<Guid> QuestionIds { get; set; } = new();
         public string? PaperTitle { get; set; }
+    }
+
+    public class SavePdfToTempRequest
+    {
+        public string PdfBase64 { get; set; } = string.Empty;
+        public string? FileName { get; set; }
+        public string? PaperMetadata { get; set; } // JSON string with paper details
     }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Filter, Download, ChevronUp, ChevronDown, Menu, FileText, GripVertical, MessageSquare } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
@@ -8,12 +8,15 @@ import SelectField from '../../components/ui/SelectField.jsx';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import QuestionCard from '../../components/QuestionCard.jsx';
 import SelectedQuestionsSidebar from '../../components/SelectedQuestionsSidebar.jsx';
+import { TypesetRequestModal } from '../../components/Paper-builder/TypesetRequestModal.jsx';
 import { useSubmission } from '../../context/SubmissionContext';
 import { useMetadata } from '../../hooks/useMetadata.js';
 import { useAdvancedPaperGeneration } from '../../hooks/useAdvancedPaperGeneration.jsx';
+import { useTypesetRequests } from '../../hooks/useTypesetRequests.js';
 import { getSubjectName } from '../../utils/subjectMapping.js';
 // Updated import to use the service function
 import { searchQuestions, logPaperGeneration } from '../../services/questionService.js';
+import { savePdfToTemp } from '../../services/typesetRequestService.js';
 
 const PaperBuilder = () => {
   // Core state management for questions and UI
@@ -27,11 +30,18 @@ const PaperBuilder = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isViewingSelectedQuestions, setIsViewingSelectedQuestions] = useState(false);
   const [questionComments, setQuestionComments] = useState({});
+  
+  // Typeset request state
+  const [showTypesetModal, setShowTypesetModal] = useState(false);
+  const [lastGeneratedPaper, setLastGeneratedPaper] = useState(null);
 
   const { showOverlay } = useSubmission();
   
   // Advanced PDF generation hook
   const { generatePDF } = useAdvancedPaperGeneration();
+  
+  // Typeset requests hook
+  const { createRequest, creating } = useTypesetRequests();
 
   // Sync selectedQuestionsOrdered when questions change (e.g., after new search)
   useEffect(() => {
@@ -116,7 +126,7 @@ const PaperBuilder = () => {
    * Updates both the simple selected array and the ordered questions array
    * @param {string|number} questionId - ID of the question to select/deselect
    */
-  const handleQuestionSelect = (questionId) => {
+  const handleQuestionSelect = useCallback((questionId) => {
     setSelectedQuestions(prev => {
       if (prev.includes(questionId)) {
         // Remove from selected questions
@@ -143,7 +153,7 @@ const PaperBuilder = () => {
         return prevOrdered;
       }
     });
-  };
+  }, [questions]);
 
   /**
    * Handles selecting/deselecting all questions
@@ -196,7 +206,7 @@ const PaperBuilder = () => {
         comment: questionComments[q.id] || ''
       }));
 
-      await generatePDF(
+      const pdfData = await generatePDF(
         questionsWithComments,
         // Success callback
         async (filename, questionCount) => {
@@ -226,11 +236,83 @@ const PaperBuilder = () => {
           });
         }
       );
+
+      // After successful PDF generation, save to temp storage and prepare for typeset request
+      if (pdfData && pdfData.pdfBlob) {
+        try {
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64data = reader.result.split(',')[1];
+            
+            try {
+              // Save PDF to temp storage on backend
+              const tempResult = await savePdfToTemp({
+                pdfBase64: base64data,
+                fileName: pdfData.fileName,
+                paperMetadata: JSON.stringify(pdfData.paperMetadata)
+              });
+
+              // Store the generated paper data for typeset modal
+              setLastGeneratedPaper({
+                tempFilePath: tempResult.tempFilePath,
+                fileName: tempResult.fileName,
+                metadata: pdfData.paperMetadata
+              });
+
+              // Show success message and automatically open typeset modal
+              setTimeout(() => {
+                showOverlay({
+                  status: 'success',
+                  message: 'PDF downloaded successfully! Opening typeset request form...',
+                  autoClose: true,
+                  autoCloseDelay: 2000
+                });
+                
+                // Automatically open the typeset modal after a short delay
+                setTimeout(() => {
+                  setShowTypesetModal(true);
+                }, 2000);
+              }, 500);
+            } catch (tempError) {
+              console.error('Failed to save temp file:', tempError);
+              // Still allow user to manually open typeset modal if needed
+            }
+          };
+          reader.readAsDataURL(pdfData.pdfBlob);
+        } catch (conversionError) {
+          console.error('Failed to convert PDF to base64:', conversionError);
+        }
+      }
     } catch (error) {
       console.error('PDF generation error:', error);
       showOverlay({
         status: 'error',
         message: 'An unexpected error occurred while generating the PDF',
+        autoClose: true,
+        autoCloseDelay: 5000
+      });
+    }
+  };
+
+  /**
+   * Handles typeset request submission
+   * @param {Object} requestData - The typeset request data
+   */
+  const handleTypesetSubmit = async (requestData) => {
+    try {
+      await createRequest(requestData);
+      setShowTypesetModal(false);
+      showOverlay({
+        status: 'success',
+        message: 'Typeset request submitted successfully! Check your profile to track the status.',
+        autoClose: true,
+        autoCloseDelay: 5000
+      });
+    } catch (error) {
+      showOverlay({
+        status: 'error',
+        message: error.message || 'Failed to submit typeset request',
         autoClose: true,
         autoCloseDelay: 5000
       });
@@ -250,21 +332,16 @@ const PaperBuilder = () => {
    * Only re-renders when questions or selectedQuestions change
    */
   const memoizedQuestionCards = useMemo(() => {
-    return questions.map((question) => {
-      const isImage = typeof question.fileUrl === 'string' && 
-        /(\.png|\.jpg|\.jpeg|\.gif|\.webp)$/i.test(question.fileUrl);
-      
-      return (
-        <QuestionCard
-          key={question.id}
-          question={question}
-          isSelected={selectedQuestions.includes(question.id)}
-          onSelect={handleQuestionSelect}
-          variant="grid"
-        />
-      );
-    });
-  }, [questions, selectedQuestions]);
+    return questions.map((question) => (
+      <QuestionCard
+        key={question.id}
+        question={question}
+        isSelected={selectedQuestions.includes(question.id)}
+        onSelect={handleQuestionSelect}
+        variant="grid"
+      />
+    ));
+  }, [questions, selectedQuestions, handleQuestionSelect]);
 
   /**
    * Handles toggling sidebar collapse state (for mobile)
@@ -743,6 +820,16 @@ const PaperBuilder = () => {
           </div>
         )}
       </div>
+
+      {/* Typeset Request Modal */}
+      <TypesetRequestModal
+        isOpen={showTypesetModal}
+        onClose={() => setShowTypesetModal(false)}
+        onSubmit={handleTypesetSubmit}
+        paperMetadata={lastGeneratedPaper?.metadata}
+        tempFilePath={lastGeneratedPaper?.tempFilePath}
+        isSubmitting={creating}
+      />
     </div>
   );
 };

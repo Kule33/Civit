@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { getMyProfile, updateMyProfile, getMyActivity } from '../services/userService';
-import { User, MapPin, CreditCard, Phone, UserCircle, Edit2, Save, X, Mail, ArrowLeft, FileText, TrendingUp, Clock, CheckCircle, Calendar, Upload, Crown, UserRound, UserCircle2, Download } from 'lucide-react';
+import { User, MapPin, CreditCard, Phone, UserCircle, Edit2, Save, X, Mail, ArrowLeft, FileText, TrendingUp, Clock, CheckCircle, Calendar, Upload, Crown, UserRound, UserCircle2, Download, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { TypesetRequestsList } from '../components/Profile/TypesetRequestsList';
+import { useTypesetRequests } from '../hooks/useTypesetRequests';
 
 const districts = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa",
@@ -38,6 +40,9 @@ const UserProfile = () => {
   });
   
   const [errors, setErrors] = useState({});
+  
+  // Typeset Requests
+  const { requests: typesetRequests, loading: loadingTypesets, refreshRequests } = useTypesetRequests();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -644,6 +649,19 @@ const UserProfile = () => {
               <p>No activity data available</p>
             </div>
           )}
+          </div>
+
+          {/* Typeset Requests Section */}
+          <div className="mt-8 pt-8 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Inbox className="h-5 w-5" />
+              My Typeset Requests
+            </h3>
+            <TypesetRequestsList 
+              requests={typesetRequests} 
+              loading={loadingTypesets}
+              onRefresh={refreshRequests}
+            />
           </div>
 
           {/* Edit Mode Actions */}
