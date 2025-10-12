@@ -17,6 +17,7 @@ namespace backend.Data
         public DbSet<Paper> Papers { get; set; }
         public DbSet<Marking> Markings { get; set; }
         public DbSet<PaperDownload> PaperDownloads { get; set; }
+        public DbSet<TypesetRequest> TypesetRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -138,6 +139,34 @@ namespace backend.Data
                 entity.HasIndex(pd => pd.ResourceId);
                 entity.HasIndex(pd => pd.ResourceType);
                 entity.HasIndex(pd => pd.DownloadedAt);
+            });
+
+            // Configure TypesetRequest entity
+            modelBuilder.Entity<TypesetRequest>(entity =>
+            {
+                entity.HasKey(tr => tr.Id);
+                entity.Property(tr => tr.Id).ValueGeneratedOnAdd();
+                
+                // Configure UserProfile relationship
+                entity.HasOne(tr => tr.User)
+                    .WithMany()
+                    .HasForeignKey(tr => tr.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                
+                // Indexes for efficient querying
+                entity.HasIndex(tr => tr.UserId);
+                entity.HasIndex(tr => tr.Status);
+                entity.HasIndex(tr => tr.RequestedAt);
+                
+                // Default values
+                entity.Property(tr => tr.Status)
+                    .HasDefaultValue("Pending");
+                
+                entity.Property(tr => tr.CreatedAt)
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                
+                entity.Property(tr => tr.UpdatedAt)
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
         }
     }
