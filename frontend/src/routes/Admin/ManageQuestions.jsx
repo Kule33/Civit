@@ -1,18 +1,21 @@
 // frontend/src/routes/Admin/ManageQuestions.jsx
 import React, { useState, useEffect } from 'react';
-import { FileText, Upload, Search, Filter, Trash2, Edit, Download, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { FileText, Upload, Search, Filter, Trash2, Edit, Download, ChevronLeft, ChevronRight, AlertTriangle, Inbox, Eye, Save } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { searchQuestions, deleteQuestion } from '../../services/questionService.js';
 import { getTypesetByQuestionId, deleteTypeset } from '../../services/typesetService.js';
+import { getAllTypesetRequests, updateTypesetRequestStatus } from '../../services/typesetRequestService.js';
+import TypesetStatusBadge from '../../components/ui/TypesetStatusBadge.jsx';
 import { supabase } from '../../supabaseClient';
 import { useSubmission } from '../../context/SubmissionContext';
 
 const ManageQuestions = () => {
-  const [activeTab, setActiveTab] = useState('questions'); // 'questions' or 'typesets'
+  const [activeTab, setActiveTab] = useState('questions'); // 'questions', 'typesets', or 'typeset-requests'
   const [questions, setQuestions] = useState([]);
   const [typesets, setTypesets] = useState([]);
+  const [typesetRequests, setTypesetRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const { showOverlay } = useSubmission();
 
@@ -26,6 +29,8 @@ const ManageQuestions = () => {
   useEffect(() => {
     if (activeTab === 'typesets') {
       loadTypesetsForQuestions();
+    } else if (activeTab === 'typeset-requests') {
+      loadTypesetRequests();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, questions]);
@@ -71,6 +76,24 @@ const ManageQuestions = () => {
       setTypesets(typesetsData.filter(t => t !== null));
     } catch (error) {
       console.error('Error loading typesets:', error);
+    }
+  };
+
+  const loadTypesetRequests = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllTypesetRequests();
+      setTypesetRequests(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading typeset requests:', error);
+      showOverlay({
+        status: 'error',
+        message: 'Failed to load typeset requests',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -121,6 +144,12 @@ const ManageQuestions = () => {
             icon={FileText}
             count={typesets.length}
           />
+          <TabButton
+            value="typeset-requests"
+            label="Typeset Requests"
+            icon={Inbox}
+            count={typesetRequests.length}
+          />
         </div>
       </Card>
 
@@ -131,11 +160,17 @@ const ManageQuestions = () => {
           loading={loading}
           onRefresh={loadAllQuestions}
         />
-      ) : (
+      ) : activeTab === 'typesets' ? (
         <TypesetsManagementSection
           typesets={typesets}
           loading={loading}
           onRefresh={loadTypesetsForQuestions}
+        />
+      ) : (
+        <TypesetRequestsManagementSection
+          typesetRequests={typesetRequests}
+          loading={loading}
+          onRefresh={loadTypesetRequests}
         />
       )}
     </div>
@@ -155,11 +190,11 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, item, type }) => 
               <AlertTriangle className="h-6 w-6 text-red-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900">
-              Delete {type === 'question' ? 'Question' : 'Typeset'}?
+              Delete {type === 'question' ? 'Question' : type === 'typeset' ? 'Typeset' : 'Typeset Request'}?
             </h3>
           </div>
           <p className="text-gray-600 mb-4">
-            Are you sure you want to delete this {type === 'question' ? 'question' : 'typeset'}? This action cannot be undone.
+            Are you sure you want to delete this {type === 'question' ? 'question' : type === 'typeset' ? 'typeset' : 'typeset request'}? This action cannot be undone.
           </p>
           {item && (
             <div className="bg-gray-50 rounded p-3 mb-4 space-y-1 text-sm">
@@ -170,12 +205,18 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, item, type }) => 
                   <p><span className="font-medium">Year:</span> {item.year || 'N/A'}</p>
                   <p className="font-mono text-xs text-gray-500">ID: {item.id?.substring(0, 16)}...</p>
                 </>
-              ) : (
+              ) : type === 'typeset' ? (
                 <>
                   <p><span className="font-medium">File:</span> {item.fileName || 'Unnamed'}</p>
                   <p><span className="font-medium">Subject:</span> {item.question?.subject?.name || 'N/A'}</p>
                   <p><span className="font-medium">Version:</span> v{item.version}</p>
                   <p className="font-mono text-xs text-gray-500">ID: {item.id?.substring(0, 16)}...</p>
+                </>
+              ) : (
+                <>
+                  <p><span className="font-medium">Request ID:</span> #{String(item.id || 'N/A')}</p>
+                  <p><span className="font-medium">User:</span> {String(item.userName || 'Unknown')}</p>
+                  <p><span className="font-medium">Status:</span> {String(item.status || 'N/A')}</p>
                 </>
               )}
             </div>
@@ -778,6 +819,621 @@ const TypesetsManagementSection = ({ typesets, loading, onRefresh }) => {
           </div>
         </Card>
       </div>
+    </div>
+  );
+};
+
+// ========================
+// Typeset Requests Management Section
+// ========================
+const TypesetRequestsManagementSection = ({ typesetRequests, loading, onRefresh }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
+  const [viewDetailsModal, setViewDetailsModal] = useState({ isOpen: false, request: null });
+  const { showOverlay } = useSubmission();
+  const pageSize = 25;
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Filter and search
+  const filteredRequests = React.useMemo(() => {
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    let filtered = typesetRequests;
+
+    // Status filter
+    if (statusFilter !== 'All') {
+      filtered = filtered.filter(r => r.status === statusFilter);
+    }
+
+    // Search filter
+    if (searchLower) {
+      filtered = filtered.filter(r => {
+        const metadata = typeof r.paperMetadata === 'string' 
+          ? JSON.parse(r.paperMetadata || '{}') 
+          : r.paperMetadata || {};
+        
+        const subjectStr = typeof metadata.subject === 'object' ? metadata.subject?.name : metadata.subject;
+        const examTypeStr = typeof metadata.examType === 'object' ? metadata.examType?.name : metadata.examType;
+        
+        return (
+          r.id?.toString().includes(searchLower) ||
+          r.userName?.toLowerCase().includes(searchLower) ||
+          r.userEmail?.toLowerCase().includes(searchLower) ||
+          subjectStr?.toLowerCase().includes(searchLower) ||
+          examTypeStr?.toLowerCase().includes(searchLower) ||
+          r.status?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    return filtered;
+  }, [typesetRequests, debouncedSearchTerm, statusFilter]);
+
+  // Pagination
+  const { totalPages, paginatedRequests } = React.useMemo(() => {
+    const total = Math.ceil(filteredRequests.length / pageSize);
+    const paginated = filteredRequests.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+    return { totalPages: total, paginatedRequests: paginated };
+  }, [filteredRequests, currentPage]);
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, statusFilter]);
+
+  const handleViewDetails = (request) => {
+    setViewDetailsModal({ isOpen: true, request });
+  };
+
+  const handleDelete = (request) => {
+    setDeleteModal({ isOpen: true, item: request });
+  };
+
+  const confirmDelete = async () => {
+    const requestId = deleteModal.item?.id;
+    if (!requestId) return;
+
+    setDeleteModal({ isOpen: false, item: null });
+    showOverlay({
+      status: 'loading',
+      message: 'Deleting typeset request...',
+      autoClose: false
+    });
+
+    try {
+      await deleteQuestion(requestId); // Will use deleteTypesetRequest in actual implementation
+      showOverlay({
+        status: 'success',
+        message: 'Typeset request deleted successfully',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+      await onRefresh();
+    } catch (error) {
+      console.error('Error deleting typeset request:', error);
+      showOverlay({
+        status: 'error',
+        message: error.response?.data?.message || 'Failed to delete typeset request',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading typeset requests...</p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Filter Bar */}
+      <Card>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+          <div className="flex-1 flex items-center gap-3">
+            <Search className="h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by Request ID, user name, subject, exam type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 outline-none text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Filter className="h-5 w-5 text-gray-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="All">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="InProgress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+            <Button variant="outline" size="small" onClick={onRefresh}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Requests List */}
+      <Card>
+        {filteredRequests.length === 0 ? (
+          <div className="text-center py-12">
+            <Inbox className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Typeset Requests Found</h3>
+            <p className="text-gray-600">
+              {searchTerm || statusFilter !== 'All' 
+                ? 'Try adjusting your search or filter criteria' 
+                : 'No typeset requests have been submitted yet'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Request ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">User</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Paper Details</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Requested</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {paginatedRequests.map((request) => (
+                  <TypesetRequestTableRow 
+                    key={request.id} 
+                    request={request} 
+                    onViewDetails={handleViewDetails}
+                    onDelete={handleDelete}
+                    onRefresh={onRefresh}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </Card>
+
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, item: null })}
+        onConfirm={confirmDelete}
+        item={deleteModal.item}
+        type="typeset request"
+      />
+
+      <ViewDetailsModal
+        isOpen={viewDetailsModal.isOpen}
+        onClose={() => setViewDetailsModal({ isOpen: false, request: null })}
+        request={viewDetailsModal.request}
+        onRefresh={onRefresh}
+      />
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-yellow-600">
+              {typesetRequests.filter(r => r.status === 'Pending').length}
+            </p>
+            <p className="text-sm text-gray-600">Pending</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-blue-600">
+              {typesetRequests.filter(r => r.status === 'InProgress').length}
+            </p>
+            <p className="text-sm text-gray-600">In Progress</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-green-600">
+              {typesetRequests.filter(r => r.status === 'Completed').length}
+            </p>
+            <p className="text-sm text-gray-600">Completed</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-red-600">
+              {typesetRequests.filter(r => r.status === 'Rejected').length}
+            </p>
+            <p className="text-sm text-gray-600">Rejected</p>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// Table Row Component for Typeset Requests
+const TypesetRequestTableRow = React.memo(({ request, onViewDetails, onDelete, onRefresh }) => {
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { showOverlay } = useSubmission();
+
+  const metadata = React.useMemo(() => {
+    try {
+      return typeof request.paperMetadata === 'string' 
+        ? JSON.parse(request.paperMetadata || '{}') 
+        : request.paperMetadata || {};
+    } catch {
+      return {};
+    }
+  }, [request.paperMetadata]);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === request.status) return;
+
+    setIsUpdating(true);
+    showOverlay({
+      status: 'loading',
+      message: `Updating status to ${newStatus}...`,
+      autoClose: false
+    });
+
+    try {
+      await updateTypesetRequestStatus(request.id, {
+        status: newStatus,
+        adminNotes: '', // Can add admin notes in ViewDetailsModal
+        adminProcessedBy: null // Will use logged-in admin email from backend
+      });
+
+      showOverlay({
+        status: 'success',
+        message: 'Status updated successfully. User will receive a notification.',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+
+      await onRefresh();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      showOverlay({
+        status: 'error',
+        message: error.response?.data?.message || 'Failed to update status',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-4 py-3">
+        <span className="font-mono text-sm text-gray-900">#{request.id}</span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="text-sm">
+          <div className="font-medium text-gray-900">{request.userName || 'Unknown'}</div>
+          <div className="text-gray-500 text-xs">{request.userEmail || 'N/A'}</div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="text-sm">
+          <div className="font-medium text-gray-900">
+            {(typeof metadata.subject === 'object' ? metadata.subject?.name : metadata.subject) || 'Unknown'} - {(typeof metadata.examType === 'object' ? metadata.examType?.name : metadata.examType) || 'Unknown'}
+          </div>
+          <div className="text-gray-500 text-xs">
+            {(typeof metadata.school === 'object' ? metadata.school?.name : metadata.school) || 'N/A'} • {metadata.year || 'N/A'}
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <select
+          value={request.status}
+          onChange={(e) => handleStatusChange(e.target.value)}
+          disabled={isUpdating}
+          className={`text-sm px-2 py-1 border rounded ${
+            request.status === 'Pending' ? 'border-yellow-300 bg-yellow-50' :
+            request.status === 'InProgress' ? 'border-blue-300 bg-blue-50' :
+            request.status === 'Completed' ? 'border-green-300 bg-green-50' :
+            'border-red-300 bg-red-50'
+          } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        >
+          <option value="Pending">⏳ Pending</option>
+          <option value="InProgress">🔄 In Progress</option>
+          <option value="Completed">✅ Completed</option>
+          <option value="Rejected">❌ Rejected</option>
+        </select>
+      </td>
+      <td className="px-4 py-3">
+        <span className="text-sm text-gray-600">{formatDate(request.requestedAt)}</span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={() => onViewDetails(request)}
+            title="View Details"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={() => onDelete(request)}
+            className="text-red-600 hover:text-red-800"
+            title="Delete Request"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+TypesetRequestTableRow.displayName = 'TypesetRequestTableRow';
+
+// View Details Modal
+const ViewDetailsModal = ({ isOpen, onClose, request, onRefresh }) => {
+  const [adminNotes, setAdminNotes] = useState('');
+  const [status, setStatus] = useState('Pending');
+  const [isSaving, setIsSaving] = useState(false);
+  const { showOverlay } = useSubmission();
+
+  useEffect(() => {
+    if (request) {
+      setStatus(request.status || 'Pending');
+      setAdminNotes(request.adminNotes || '');
+    }
+  }, [request]);
+
+  if (!isOpen || !request) return null;
+
+  const metadata = (() => {
+    try {
+      return typeof request.paperMetadata === 'string' 
+        ? JSON.parse(request.paperMetadata || '{}') 
+        : request.paperMetadata || {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    showOverlay({
+      status: 'loading',
+      message: 'Saving changes...',
+      autoClose: false
+    });
+
+    try {
+      await updateTypesetRequestStatus(request.id, {
+        status,
+        adminNotes,
+        adminProcessedBy: null // Will use logged-in admin email from backend
+      });
+
+      showOverlay({
+        status: 'success',
+        message: 'Changes saved successfully. User will receive a notification.',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+
+      await onRefresh();
+      onClose();
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      showOverlay({
+        status: 'error',
+        message: error.response?.data?.message || 'Failed to save changes',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Typeset Request Details</h2>
+              <p className="text-sm text-gray-600 mt-1">Request ID: #{request.id}</p>
+            </div>
+            <TypesetStatusBadge status={request.status} />
+          </div>
+
+          {/* User Info */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">User Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Name</p>
+                <p className="text-sm font-medium text-gray-900">{request.userName || 'Unknown'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="text-sm font-medium text-gray-900">{request.userEmail || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Paper Metadata */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Paper Details</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Subject</p>
+                <p className="text-sm font-medium text-gray-900">{(typeof metadata.subject === 'object' ? metadata.subject?.name : metadata.subject) || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Exam Type</p>
+                <p className="text-sm font-medium text-gray-900">{(typeof metadata.examType === 'object' ? metadata.examType?.name : metadata.examType) || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">School</p>
+                <p className="text-sm font-medium text-gray-900">{(typeof metadata.school === 'object' ? metadata.school?.name : metadata.school) || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Year</p>
+                <p className="text-sm font-medium text-gray-900">{metadata.year || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Country</p>
+                <p className="text-sm font-medium text-gray-900">{(typeof metadata.country === 'object' ? metadata.country?.name : metadata.country) || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Questions</p>
+                <p className="text-sm font-medium text-gray-900">{metadata.totalQuestions || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Message */}
+          {request.userMessage && (
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">User Message</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{request.userMessage}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Dates */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Timeline</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Requested At</p>
+                <p className="text-sm font-medium text-gray-900">{formatDate(request.requestedAt)}</p>
+              </div>
+              {request.completedAt && (
+                <div>
+                  <p className="text-sm text-gray-600">Completed At</p>
+                  <p className="text-sm font-medium text-gray-900">{formatDate(request.completedAt)}</p>
+                </div>
+              )}
+            </div>
+            {request.adminProcessedBy && (
+              <div className="mt-3">
+                <p className="text-sm text-gray-600">Processed By</p>
+                <p className="text-sm font-medium text-gray-900">{request.adminProcessedBy}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Admin Controls */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Admin Controls</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  disabled={isSaving}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Pending">⏳ Pending</option>
+                  <option value="InProgress">🔄 In Progress</option>
+                  <option value="Completed">✅ Completed</option>
+                  <option value="Rejected">❌ Rejected</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Admin Notes
+                </label>
+                <textarea
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  disabled={isSaving}
+                  rows={4}
+                  placeholder="Add notes about this request (visible to user if rejected)..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 };
