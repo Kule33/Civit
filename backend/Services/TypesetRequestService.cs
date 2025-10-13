@@ -2,6 +2,7 @@ using backend.Data;
 using backend.DTOs;
 using backend.Models;
 using backend.Repositories.Interfaces;
+using backend.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -28,6 +29,7 @@ namespace backend.Services
         private readonly AppDbContext _context;
         private readonly ITempFileService _tempFileService;
         private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<TypesetRequestService> _logger;
         private readonly int _maxRequestsPerDay;
@@ -37,6 +39,7 @@ namespace backend.Services
             AppDbContext context,
             ITempFileService tempFileService,
             IEmailService emailService,
+            INotificationService notificationService,
             IConfiguration configuration,
             ILogger<TypesetRequestService> logger)
         {
@@ -44,6 +47,7 @@ namespace backend.Services
             _context = context;
             _tempFileService = tempFileService;
             _emailService = emailService;
+            _notificationService = notificationService;
             _configuration = configuration;
             _logger = logger;
             _maxRequestsPerDay = _configuration.GetValue<int>("RateLimiting:TypesetRequestsPerDay", 5);
@@ -189,9 +193,29 @@ namespace backend.Services
 
                 if (updated && oldStatus != dto.Status)
                 {
-                    // Send status update email to user
-                    await _emailService.SendTypesetStatusUpdateEmailAsync(request, request.User!);
-                    _logger.LogInformation($"Sent status update email for request #{id}");
+                    // Create notification for user when status changes
+                    string notificationTitle = $"Typeset Request Update - {dto.Status}";
+                    string notificationMessage = dto.Status switch
+                    {
+                        TypesetRequestStatus.InProgress => "Your typeset request is now being processed by our team.",
+                        TypesetRequestStatus.Completed => "Great news! Your typeset request has been completed.",
+                        TypesetRequestStatus.Rejected => $"Your typeset request has been declined. {(string.IsNullOrWhiteSpace(dto.AdminNotes) ? "" : $"Reason: {dto.AdminNotes}")}",
+                        _ => $"Your typeset request status has been updated to {dto.Status}."
+                    };
+
+                    await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                    {
+                        UserId = request.UserId,
+                        Type = dto.Status == TypesetRequestStatus.Completed ? "success" : 
+                               dto.Status == TypesetRequestStatus.Rejected ? "error" : "info",
+                        Title = notificationTitle,
+                        Message = notificationMessage,
+                        Link = "/profile",
+                        RelatedEntityId = id.ToString(),
+                        RelatedEntityType = "TypesetRequest"
+                    });
+
+                    _logger.LogInformation($"Created notification for typeset request #{id} status change from {oldStatus} to {dto.Status}");
                 }
 
                 _logger.LogInformation($"Updated typeset request #{id} status from {oldStatus} to {dto.Status}");
