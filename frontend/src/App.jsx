@@ -21,9 +21,9 @@ const PaperBuilder = lazy(() => import('./routes/Teacher/PaperBuilder.jsx'));
 const TeacherPayment = lazy(() => import('./routes/Teacher/TeacherPayment.jsx'));
 const Papers = lazy(() => import('./pages/Papers.jsx'));
 
-const AdminQuestionUpload = lazy(() => import('./routes/Admin/QuestionUpload.jsx'));
+const Uploads = lazy(() => import('./pages/Uploads.jsx'));
 const AdminManageQuestions = lazy(() => import('./routes/Admin/ManageQuestions.jsx'));
-const AdminTypesetUpload = lazy(() => import('./routes/Admin/TypesetUpload.jsx'));
+const TypesetBuilder = lazy(() => import('./routes/Admin/TypesetBuilder.jsx'));
 const Users = lazy(() => import('./routes/Admin/Users.jsx'));
 
 // ⚡ Loading component for lazy-loaded routes
@@ -93,9 +93,9 @@ function App() {
 
             {/* Admin Routes - Protected + Lazy Loaded */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-              <Route path="admin/questions/upload" element={<AdminQuestionUpload />} />
+              <Route path="admin/uploads" element={<Uploads />} />
               <Route path="admin/questions/manage" element={<AdminManageQuestions />} />
-              <Route path="admin/typeset/upload" element={<AdminTypesetUpload />} />
+              <Route path="admin/typeset-builder" element={<TypesetBuilder />} />
               <Route path="admin/users" element={<Users />} />
             </Route>
 

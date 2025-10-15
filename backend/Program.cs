@@ -226,6 +226,7 @@ builder.Services.AddScoped<IMarkingService, MarkingService>();
 builder.Services.AddScoped<ITempFileService, TempFileService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ITypesetRequestService, TypesetRequestService>();
+builder.Services.AddScoped<IDocumentMergeService, DocumentMergeService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();

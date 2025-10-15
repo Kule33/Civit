@@ -111,6 +111,22 @@ namespace backend.Services
 
                 _logger.LogInformation($"Emails sent for request #{createdRequest.Id} - Admin: {adminEmailSent}, User: {userEmailSent}");
 
+                // Send notification to all admins about the new typeset request
+                try
+                {
+                    await _notificationService.CreateAdminNotificationAsync(
+                        "info",
+                        "New Typeset Request",
+                        $"{user.FullName} has submitted a new typeset request",
+                        "/admin/questions/manage"
+                    );
+                    _logger.LogInformation($"Sent notification to admins about typeset request #{createdRequest.Id} from {user.FullName}");
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, $"Failed to send notification to admins for typeset request #{createdRequest.Id}");
+                }
+
                 // Delete temp file after email is sent (as per requirement)
                 await _tempFileService.DeleteTempPdfAsync(dto.PaperFilePath);
                 _logger.LogInformation($"Deleted temp file after sending email: {dto.PaperFilePath}");
