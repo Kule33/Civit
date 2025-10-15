@@ -91,9 +91,9 @@ const Header = () => {
     { name: 'Users', path: '/admin/users', icon: Users, roles: ['admin'] },
     { name: 'Paper Builder', path: '/teacher/paper-builder', icon: FileText, roles: ['admin', 'teacher'] },
     { name: 'Papers', path: '/papers', icon: BookOpen, roles: ['admin', 'teacher'] },
-    { name: 'Question Upload', path: '/admin/questions/upload', icon: Upload, roles: ['admin'] },
+    { name: 'Uploads', path: '/admin/uploads', icon: Upload, roles: ['admin'] },
     { name: 'Manage Questions', path: '/admin/questions/manage', icon: Database, roles: ['admin'] },
-    { name: 'Typeset Upload', path: '/admin/typeset/upload', icon: Type, roles: ['admin'] },
+    { name: 'Typeset Builder', path: '/admin/typeset-builder', icon: Type, roles: ['admin'] },
   ];
 
   // Filter navigation items based on user's role

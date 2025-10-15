@@ -58,3 +58,43 @@ export async function deleteTypeset(typesetId, token) {
     throw error;
   }
 }
+
+/**
+ * Merge multiple Word documents into a single file
+ * @param {string[]} fileUrls - Array of Cloudinary URLs for Word documents
+ * @returns {Promise<Blob>} The merged document as a blob
+ */
+export async function mergeDocuments(fileUrls) {
+  try {
+    console.log('🔄 Merging documents:', fileUrls);
+    const response = await axios.post('/api/merge/documents', 
+      { fileUrls },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        responseType: 'blob' // Important: tells axios to expect binary data
+      }
+    );
+    console.log('✅ Documents merged successfully');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error merging documents:', error);
+    console.error('Response status:', error.response?.status);
+    console.error('Response headers:', error.response?.headers);
+    
+    // Try to read error message from blob if it's an error response
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        console.error('Error response body:', text);
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || 'Failed to merge documents');
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+      }
+    }
+    
+    throw new Error(error.response?.data?.message || error.message || 'Failed to merge documents');
+  }
+}
