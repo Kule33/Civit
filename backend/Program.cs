@@ -13,13 +13,10 @@ using System.Text;
 using Microsoft.Extensions.Options; // Ensure this is present if using IOptions<T> elsewhere
 using System.Security.Claims;
 using System.Text.Json;
+using DotNetEnv;
 
-// Load environment variables from .env if present
-try
-{
-    DotNetEnv.Env.Load();
-}
-catch { }
+// Load environment variables from .env file
+Env.Load();
 
 // Map flat .env variables to ASP.NET nested config keys if provided
 var flatProjectUrl = Environment.GetEnvironmentVariable("SUPABASE_PROJECT_URL");
@@ -41,6 +38,29 @@ if (!string.IsNullOrWhiteSpace(flatServiceKey))
 }
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Override configuration with environment variables
+builder.Configuration["ConnectionStrings:DefaultConnection"] = 
+    $"Host={Environment.GetEnvironmentVariable("DB_HOST")};" +
+    $"Port={Environment.GetEnvironmentVariable("DB_PORT")};" +
+    $"Database={Environment.GetEnvironmentVariable("DB_NAME")};" +
+    $"Username={Environment.GetEnvironmentVariable("DB_USERNAME")};" +
+    $"Password={Environment.GetEnvironmentVariable("DB_PASSWORD")};" +
+    "Ssl Mode=Require;Timeout=120;Command Timeout=30;Maximum Pool Size=100;" +
+    "Minimum Pool Size=2;Connection Idle Lifetime=300;Connection Pruning Interval=10;" +
+    "Search Path=public;Pooling=true;Enlist=false;No Reset On Close=true;";
+
+builder.Configuration["CloudinarySettings:CloudName"] = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
+builder.Configuration["CloudinarySettings:ApiKey"] = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
+builder.Configuration["CloudinarySettings:ApiSecret"] = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET");
+
+builder.Configuration["EmailSettings:AdminEmail"] = Environment.GetEnvironmentVariable("ADMIN_EMAIL");
+builder.Configuration["EmailSettings:SmtpHost"] = Environment.GetEnvironmentVariable("SMTP_HOST");
+builder.Configuration["EmailSettings:SmtpPort"] = Environment.GetEnvironmentVariable("SMTP_PORT");
+builder.Configuration["EmailSettings:SmtpUsername"] = Environment.GetEnvironmentVariable("SMTP_USERNAME");
+builder.Configuration["EmailSettings:SmtpPassword"] = Environment.GetEnvironmentVariable("SMTP_PASSWORD");
+builder.Configuration["EmailSettings:SenderEmail"] = Environment.GetEnvironmentVariable("SENDER_EMAIL");
+builder.Configuration["EmailSettings:SenderName"] = Environment.GetEnvironmentVariable("SENDER_NAME");
 
 // Add services to the container.
 

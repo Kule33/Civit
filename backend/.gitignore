@@ -1,30 +1,36 @@
+# Environment variables - NEVER COMMIT THESE
 .env
-.env.*
-*.env
+.env.local
+.env.*.local
 
-# Prevent accidental commit of dev settings with expanded secrets (keep file but not values)
-!appsettings.Development.json
-
-# Ignore build output
-bin/
-obj/
-
-# Visual Studio temporary files
-*.user
-*.rsuser
+# User-specific files
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
 
 # Build results
-*.exe
-*.dll
-*.pdb
-*.cache
-*.log
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
 
-# VS Code settings
-.vscode/
+# Temporary files
+temp/
+*.tmp
 
-# Publish folder
-*.publish/
+# Visual Studio
+.vs/
+*.vsidx
+*.vspscc
+.vssscc
+
+# ASP.NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
