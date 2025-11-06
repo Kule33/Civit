@@ -10,14 +10,29 @@ obj/
 *.sln.docstates
 
 # Build results
-*.exe
-*.dll
-*.pdb
-*.cache
-*.log
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
 
-# VS Code settings
-.vscode/
+# Temporary files
+backend/temp/
 
-# Publish folder
-*.publish/
+# Visual Studio
+.vs/
+*.vsidx
+*.vspscc
+.vssscc
+
+# ASP.NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Node modules (if any)
+node_modules/
