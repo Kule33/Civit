@@ -1,1 +1,2 @@
 # Civit
+Web-based ERP platform designed for tutors and typesetting companies to bridge the gap in the exam paper generation and typesetting process. The system ensures secure data handling, modular scalability, and an intuitive user experience for managing and assembling exam content. Built using React.js, ASP.NET, Supabase with PostgreSQL, and Cloudinary.
