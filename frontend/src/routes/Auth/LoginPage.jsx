@@ -86,7 +86,29 @@ function LoginPage() {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      setError(err.message || 'An unexpected error occurred.');
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'An unexpected error occurred.';
+      
+      if (err.message) {
+        const msg = err.message.toLowerCase();
+        
+        if (msg.includes('invalid login credentials') || msg.includes('invalid email or password')) {
+          errorMessage = '❌ Invalid email or password. Please check your credentials and try again.';
+        } else if (msg.includes('email not confirmed')) {
+          errorMessage = '📧 Please verify your email address. Check your inbox for the confirmation link.';
+        } else if (msg.includes('user not found')) {
+          errorMessage = '❌ No account found with this email address. Please sign up first.';
+        } else if (msg.includes('too many requests')) {
+          errorMessage = '⏳ Too many login attempts. Please wait a few minutes and try again.';
+        } else if (msg.includes('network') || msg.includes('fetch')) {
+          errorMessage = '🌐 Network error. Please check your internet connection and try again.';
+        } else {
+          errorMessage = `❌ ${err.message}`;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
