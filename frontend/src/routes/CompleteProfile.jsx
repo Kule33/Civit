@@ -33,16 +33,23 @@ const CompleteProfile = () => {
   // Redirect if profile already exists
   useEffect(() => {
     if (userProfile) {
-      navigate('/teacher/dashboard');
+      console.log('CompleteProfile: User already has profile, redirecting to dashboard');
+      navigate('/teacher/dashboard', { replace: true });
     }
   }, [userProfile, navigate]);
 
   // Redirect if not authenticated
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      console.log('CompleteProfile: User not authenticated, redirecting to login');
+      navigate('/login', { replace: true });
     }
   }, [user, navigate]);
+
+  // Don't render form if user already has profile (prevent flash)
+  if (userProfile) {
+    return null;
+  }
 
   const validateForm = () => {
     const newErrors = {};
