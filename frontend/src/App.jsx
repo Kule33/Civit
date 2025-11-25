@@ -41,13 +41,14 @@ const PageLoader = () => (
 );
 
 function App() {
-  const { loading: authLoading, user } = useAuth(); // Get auth loading state
+  const { loading: authLoading, profileLoading, user, userProfile } = useAuth(); // Get auth and profile loading state
 
-  console.log('App.jsx rendering, authLoading:', authLoading, 'user:', user?.email || 'No user');
+  console.log('App.jsx rendering, authLoading:', authLoading, 'profileLoading:', profileLoading, 'user:', user?.email || 'No user', 'userProfile:', !!userProfile);
 
-  // If AuthProvider is still loading, show a global loading indicator
-  if (authLoading) {
-    console.log('App showing loading screen because authLoading is true');
+  // If AuthProvider is still loading user OR profile, show a global loading indicator
+  // Wait for both to complete to avoid brief flashes of wrong pages
+  if (authLoading || (user && profileLoading)) {
+    console.log('App showing loading screen - authLoading:', authLoading, 'profileLoading:', profileLoading);
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center space-y-4">
@@ -56,7 +57,7 @@ function App() {
             </div>
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Paper Master</h1>
-                <p className="text-gray-600">Initializing application...</p>
+                <p className="text-gray-600">{authLoading ? 'Initializing application...' : 'Loading profile...'}</p>
             </div>
             </div>
         </div>

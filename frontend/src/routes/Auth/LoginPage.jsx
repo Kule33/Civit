@@ -43,15 +43,23 @@ function LoginPage() {
         }, 5000);
       } else {
         await login(email, password);
+        console.log('Login successful, checking profile...');
+        
+        // Wait a moment for auth state to update and profile to load
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         try {
-          await getMyProfile();
-          navigate('/');
+          const profile = await getMyProfile();
+          console.log('Profile exists:', profile);
+          navigate('/teacher/dashboard', { replace: true });
         } catch (profileError) {
+          console.log('Profile error:', profileError);
           if (profileError.response?.status === 404) {
-            navigate('/complete-profile');
+            console.log('No profile found, redirecting to complete-profile');
+            navigate('/complete-profile', { replace: true });
           } else {
-            navigate('/');
+            console.error('Error fetching profile:', profileError);
+            navigate('/', { replace: true });
           }
         }
       }

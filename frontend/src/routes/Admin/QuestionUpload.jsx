@@ -198,7 +198,6 @@ const QuestionUpload = () => {
               
               // Show detailed progress in overlay
               const currentFileProgress = Math.round(progress);
-              const overallProgress = Math.round(((i * 100) + progress) / filesToUpload.length);
               
               showOverlay({
                 status: 'loading',
