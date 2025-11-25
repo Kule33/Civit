@@ -1,5 +1,5 @@
 // frontend/src/routes/Auth/LoginPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, UserPlus, X, ArrowRight } from 'lucide-react';
@@ -18,12 +18,33 @@ function LoginPage() {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
 
-  const { login, signup, resetPasswordRequest, user } = useAuth();
+  const { login, signup, resetPasswordRequest, user, userProfile, profileLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // Redirect if already logged in - use useEffect to prevent rendering login form
+  useEffect(() => {
+    if (user && !profileLoading) {
+      console.log('User already logged in, redirecting...', { hasProfile: !!userProfile });
+      if (userProfile) {
+        navigate('/teacher/dashboard', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [user, userProfile, profileLoading, navigate]);
+
+  // Don't render login form if user is already logged in
   if (user) {
-    navigate('/');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-600">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e) => {
