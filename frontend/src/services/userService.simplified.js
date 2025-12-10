@@ -1,69 +1,56 @@
+// Simplified User Service - Server handles all authentication validation
+// This version removes redundant client-side checks since the server validates everything
+
 import axios from 'axios';
 import { supabase } from '../supabaseClient';
 
 const API_BASE_URL = 'http://localhost:5201/api/userprofiles';
 
-// Helper function to get the authorization header with the current Supabase JWT
-// Can optionally accept a session token to avoid calling getSession() again
+/**
+ * Get authorization headers with current session token
+ * Server handles all token validation, expiration checks, and role extraction
+ */
 const getAuthHeaders = async (accessToken = null) => {
-  console.log('[userService] Getting auth headers...', accessToken ? 'Using provided token' : 'Fetching session');
-  
   try {
+    // Get token from provided parameter or current session
     let token = accessToken;
     
     if (!token) {
-      // Add timeout to prevent hanging
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session fetch timeout')), 3000)
-      );
-      
-      const result = await Promise.race([sessionPromise, timeoutPromise]);
-      const { data: { session }, error } = result;
-      
-      console.log('[userService] getSession completed:', error ? 'Error' : 'Success', session ? 'Has session' : 'No session');
-      
-      if (error) {
-        console.error('[userService] Error getting Supabase session:', error);
-        throw new Error('Authentication session not found.');
-      }
-      if (!session || !session.access_token) {
-        throw new Error('No active session or access token found. User might not be logged in.');
-      }
-      token = session.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      token = session?.access_token;
     }
     
-    console.log('[userService] Returning auth headers with token');
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+    
     return {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      timeout: 5000, // 5 second timeout for API calls
     };
   } catch (err) {
-    console.error('[userService] Exception in getAuthHeaders:', err);
+    console.error('Failed to get auth headers:', err);
     throw err;
   }
 };
 
 /**
  * Get current user's profile
- * @param {string} accessToken - Optional access token to use (avoids calling getSession)
- * @returns {Promise<Object>} User profile data
+ * Server validates authentication and extracts user ID from JWT token
  */
 export const getMyProfile = async (accessToken = null) => {
-  console.log('[userService] getMyProfile called');
   try {
-    console.log('[userService] Getting auth headers for profile fetch...');
     const authHeaders = await getAuthHeaders(accessToken);
-    console.log('[userService] Auth headers obtained, making API call to', `${API_BASE_URL}/me`);
     const response = await axios.get(`${API_BASE_URL}/me`, authHeaders);
-    console.log('[userService] Profile API response received:', response.status);
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {
-      throw new Error('Profile not found');
+      throw new Error('Profile not found. Please complete your profile.');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required. Please log in.');
     }
     throw error;
   }
@@ -71,23 +58,22 @@ export const getMyProfile = async (accessToken = null) => {
 
 /**
  * Create a new user profile
- * @param {Object} profileData - Profile data (without id or role - backend handles these)
- * @returns {Promise<Object>} Created profile
+ * Server extracts user ID and role from JWT token
  */
 export const createProfile = async (profileData) => {
   try {
-    // Remove id and role if present - backend extracts from JWT
-    const { id: _id, role: _role, ...dataWithoutIdAndRole } = profileData;
-    
     const authHeaders = await getAuthHeaders();
-    const response = await axios.post(API_BASE_URL, dataWithoutIdAndRole, authHeaders);
+    const response = await axios.post(API_BASE_URL, profileData, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 409) {
-      throw new Error(error.response.data.message || 'Profile already exists or NIC is duplicate');
+      throw new Error('Profile already exists');
     }
     if (error.response?.status === 400) {
-      throw new Error(error.response.data.message || 'Invalid profile data');
+      throw new Error(error.response.data?.message || 'Invalid profile data');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
     }
     throw error;
   }
@@ -95,8 +81,7 @@ export const createProfile = async (profileData) => {
 
 /**
  * Update current user's own profile
- * @param {Object} profileData - Updated profile data
- * @returns {Promise<Object>} Updated profile
+ * Server validates that user is updating their own profile
  */
 export const updateMyProfile = async (profileData) => {
   try {
@@ -108,20 +93,21 @@ export const updateMyProfile = async (profileData) => {
       throw new Error('Profile not found');
     }
     if (error.response?.status === 409) {
-      throw new Error(error.response.data.message || 'NIC already exists');
+      throw new Error('Email already in use');
     }
     if (error.response?.status === 400) {
-      throw new Error(error.response.data.message || 'Invalid profile data');
+      throw new Error(error.response.data?.message || 'Invalid profile data');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
     }
     throw error;
   }
 };
 
 /**
- * Update user profile (admin only, or user updating their own profile)
- * @param {string} id - User profile ID
- * @param {Object} profileData - Updated profile data
- * @returns {Promise<Object>} Updated profile
+ * Update user profile by ID
+ * Server validates: admin can update any profile, users can only update their own
  */
 export const updateProfile = async (id, profileData) => {
   try {
@@ -133,21 +119,24 @@ export const updateProfile = async (id, profileData) => {
       throw new Error('Profile not found');
     }
     if (error.response?.status === 409) {
-      throw new Error(error.response.data.message || 'NIC already exists');
+      throw new Error('Email already in use');
     }
     if (error.response?.status === 403) {
-      throw new Error('Not authorized to update this profile');
+      throw new Error('You do not have permission to update this profile');
     }
     if (error.response?.status === 400) {
-      throw new Error(error.response.data.message || 'Invalid profile data');
+      throw new Error(error.response.data?.message || 'Invalid profile data');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
     }
     throw error;
   }
 };
 
 /**
- * Get all user profiles (admin only)
- * @returns {Promise<Array>} List of all profiles
+ * Get all user profiles
+ * Server validates: admin only
  */
 export const getAllProfiles = async () => {
   try {
@@ -158,14 +147,16 @@ export const getAllProfiles = async () => {
     if (error.response?.status === 403) {
       throw new Error('Admin access required');
     }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
+    }
     throw error;
   }
 };
 
 /**
- * Get profile by ID (admin only)
- * @param {string} id - User profile ID
- * @returns {Promise<Object>} User profile
+ * Get profile by ID
+ * Server validates: admin only
  */
 export const getProfileById = async (id) => {
   try {
@@ -179,15 +170,16 @@ export const getProfileById = async (id) => {
     if (error.response?.status === 403) {
       throw new Error('Admin access required');
     }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
+    }
     throw error;
   }
 };
 
 /**
- * Change user role (admin only)
- * @param {string} id - User profile ID
- * @param {string} newRole - New role ('admin' or 'teacher')
- * @returns {Promise<Object>} Updated profile
+ * Change user role
+ * Server validates: admin only
  */
 export const changeUserRole = async (id, newRole) => {
   try {
@@ -196,13 +188,16 @@ export const changeUserRole = async (id, newRole) => {
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {
-      throw new Error('Profile not found');
+      throw new Error('User not found');
     }
     if (error.response?.status === 403) {
       throw new Error('Admin access required');
     }
     if (error.response?.status === 400) {
-      throw new Error(error.response.data.message || 'Invalid role');
+      throw new Error(error.response.data?.message || 'Invalid role');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
     }
     throw error;
   }
@@ -210,7 +205,7 @@ export const changeUserRole = async (id, newRole) => {
 
 /**
  * Get current user's activity statistics
- * @returns {Promise<Object>} User activity stats
+ * Server validates authentication and extracts user ID from token
  */
 export const getMyActivity = async () => {
   try {
@@ -218,15 +213,16 @@ export const getMyActivity = async () => {
     const response = await axios.get(`${API_BASE_URL}/me/activity`, authHeaders);
     return response.data;
   } catch (error) {
-    console.error('Error fetching own activity:', error);
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
+    }
     throw error;
   }
 };
 
 /**
- * Get user activity statistics (admin only)
- * @param {string} userId - User ID to get activity for
- * @returns {Promise<Object>} User activity stats
+ * Get user activity statistics by user ID
+ * Server validates: admin only
  */
 export const getUserActivity = async (userId) => {
   try {
@@ -234,7 +230,12 @@ export const getUserActivity = async (userId) => {
     const response = await axios.get(`${API_BASE_URL}/${userId}/activity`, authHeaders);
     return response.data;
   } catch (error) {
-    console.error('Error fetching user activity:', error);
+    if (error.response?.status === 403) {
+      throw new Error('Admin access required');
+    }
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required');
+    }
     throw error;
   }
 };

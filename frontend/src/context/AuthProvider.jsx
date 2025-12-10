@@ -59,10 +59,10 @@ export const AuthProvider = ({ children }) => {
             setIsTeacher(userRole === 'teacher');
           }
           
-          // Fetch user profile
+          // Fetch user profile - PASS THE ACCESS TOKEN to avoid calling getSession() again
           try {
-            console.log('Fetching user profile...');
-            const profile = await getMyProfile();
+            console.log('Fetching user profile with provided token...');
+            const profile = await getMyProfile(session.access_token);
             console.log('Profile loaded:', profile);
             if (isMounted) {
               setUserProfile(profile);

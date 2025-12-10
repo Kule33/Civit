@@ -54,6 +54,10 @@ namespace backend.Models
 
         public DateTime UploadDate { get; set; } = DateTime.UtcNow;
         
+        // Navigation property for related Typesets (one-to-many relationship)
+        // This enables eager loading to prevent N+1 query problems
+        public ICollection<Typeset> Typesets { get; set; } = new List<Typeset>();
+        
         // REMOVED: UniqueKey property
         // [StringLength(500)]
         // public string? UniqueKey { get; set; } 

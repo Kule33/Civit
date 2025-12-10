@@ -22,7 +22,7 @@ const Header = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fetch unread count every 30 seconds
+  // Fetch unread count periodically (reduced from 30s to 60s to reduce server load)
   useEffect(() => {
     if (!user) return;
 
@@ -38,8 +38,8 @@ const Header = () => {
     // Initial fetch
     fetchUnreadCount();
 
-    // Poll every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Poll every 60 seconds (reduced frequency)
+    const interval = setInterval(fetchUnreadCount, 60000);
 
     return () => clearInterval(interval);
   }, [user]);

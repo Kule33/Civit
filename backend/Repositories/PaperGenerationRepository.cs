@@ -80,30 +80,83 @@ namespace backend.Repositories
         {
             var allGenerations = await _context.PaperGenerations.ToListAsync();
             var subjectCounts = new Dictionary<string, int>();
+            var allQuestionIds = new HashSet<Guid>();
 
+            // 1. Collect all unique question IDs (First Pass)
+            // We deserialize here to find out which questions we need to fetch.
             foreach (var generation in allGenerations)
             {
                 try
                 {
-                    var questionIds = JsonSerializer.Deserialize<List<Guid>>(generation.QuestionIds);
-                    if (questionIds != null && questionIds.Any())
-                    {
-                        // Get subjects for these questions
-                        var questions = await _context.Questions
-                            .Include(q => q.Subject)
-                            .Where(q => questionIds.Contains(q.Id))
-                            .ToListAsync();
+                    if (string.IsNullOrEmpty(generation.QuestionIds)) continue;
 
-                        foreach (var question in questions)
+                    var questionIds = JsonSerializer.Deserialize<List<Guid>>(generation.QuestionIds);
+                    if (questionIds != null)
+                    {
+                        foreach (var id in questionIds)
                         {
-                            var subjectName = question.Subject?.Name ?? "Unknown";
-                            if (subjectCounts.ContainsKey(subjectName))
+                            allQuestionIds.Add(id);
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+            }
+
+            if (!allQuestionIds.Any())
+            {
+                return subjectCounts;
+            }
+
+            // 2. Fetch all questions with subjects in batches to avoid SQL parameter limits
+            // This solves the N+1 problem by fetching all needed data in a few queries.
+            var questionsWithSubjects = new Dictionary<Guid, string>();
+            var allIdsList = allQuestionIds.ToList();
+            var batchSize = 1000; 
+
+            for (int i = 0; i < allIdsList.Count; i += batchSize)
+            {
+                var batch = allIdsList.Skip(i).Take(batchSize).ToList();
+                
+                var batchResults = await _context.Questions
+                    .Where(q => batch.Contains(q.Id))
+                    .Select(q => new { q.Id, SubjectName = q.Subject != null ? q.Subject.Name : "Unknown" })
+                    .ToListAsync();
+
+                foreach (var item in batchResults)
+                {
+                    if (!questionsWithSubjects.ContainsKey(item.Id))
+                    {
+                        questionsWithSubjects[item.Id] = item.SubjectName;
+                    }
+                }
+            }
+
+            // 3. Count subjects (Second Pass)
+            // We deserialize again to process the counts. This avoids holding all deserialized lists in memory at once.
+            foreach (var generation in allGenerations)
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(generation.QuestionIds)) continue;
+
+                    var questionIds = JsonSerializer.Deserialize<List<Guid>>(generation.QuestionIds);
+                    if (questionIds != null)
+                    {
+                        foreach (var qId in questionIds)
+                        {
+                            if (questionsWithSubjects.TryGetValue(qId, out var subjectName))
                             {
-                                subjectCounts[subjectName]++;
-                            }
-                            else
-                            {
-                                subjectCounts[subjectName] = 1;
+                                if (subjectCounts.ContainsKey(subjectName))
+                                {
+                                    subjectCounts[subjectName]++;
+                                }
+                                else
+                                {
+                                    subjectCounts[subjectName] = 1;
+                                }
                             }
                         }
                     }
