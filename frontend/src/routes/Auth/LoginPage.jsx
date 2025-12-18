@@ -53,6 +53,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
+      navigate('/teacher/dashboard', { replace: true });
       if (isSigningUp) {
         await signup(email, password);
         setSignupSuccess(true);
@@ -72,7 +73,7 @@ function LoginPage() {
         try {
           const profile = await getMyProfile();
           console.log('Profile exists:', profile);
-          navigate('/teacher/dashboard', { replace: true });
+          //navigate('/teacher/dashboard', { replace: true });
         } catch (profileError) {
           console.log('Profile error:', profileError);
           if (profileError.response?.status === 404) {

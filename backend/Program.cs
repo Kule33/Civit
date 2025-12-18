@@ -36,19 +36,62 @@ if (!string.IsNullOrWhiteSpace(flatServiceKey))
 {
     Environment.SetEnvironmentVariable("Supabase__ServiceRoleKey", flatServiceKey);
 }
+var flatAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+if (!string.IsNullOrWhiteSpace(flatAnonKey))
+{
+    Environment.SetEnvironmentVariable("Supabase__AnonKey", flatAnonKey);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Override configuration with environment variables
-builder.Configuration["ConnectionStrings:DefaultConnection"] = 
-    $"Host={Environment.GetEnvironmentVariable("DB_HOST")};" +
-    $"Port={Environment.GetEnvironmentVariable("DB_PORT")};" +
-    $"Database={Environment.GetEnvironmentVariable("DB_NAME")};" +
-    $"Username={Environment.GetEnvironmentVariable("DB_USERNAME")};" +
-    $"Password={Environment.GetEnvironmentVariable("DB_PASSWORD")};" +
-    "Ssl Mode=Require;Timeout=120;Command Timeout=30;Maximum Pool Size=100;" +
-    "Minimum Pool Size=2;Connection Idle Lifetime=300;Connection Pruning Interval=10;" +
-    "Search Path=public;Pooling=true;Enlist=false;No Reset On Close=true;";
+// Ensure environment variables are included in configuration
+builder.Configuration.AddEnvironmentVariables();
+
+// Explicitly bind Supabase settings from environment variables into configuration
+var envSupabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_PROJECT_URL");
+var envSupabaseJwt = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var envSupabaseServiceKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+var envSupabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+
+if (!string.IsNullOrWhiteSpace(envSupabaseUrl))
+    builder.Configuration["Supabase:ProjectUrl"] = envSupabaseUrl;
+if (!string.IsNullOrWhiteSpace(envSupabaseJwt))
+    builder.Configuration["Supabase:JwtSecret"] = envSupabaseJwt;
+if (!string.IsNullOrWhiteSpace(envSupabaseServiceKey))
+    builder.Configuration["Supabase:ServiceRoleKey"] = envSupabaseServiceKey;
+if (!string.IsNullOrWhiteSpace(envSupabaseAnonKey))
+    builder.Configuration["Supabase:AnonKey"] = envSupabaseAnonKey;
+
+// Override DB connection string from environment variables only if present
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+var dbUser = Environment.GetEnvironmentVariable("DB_USERNAME");
+var dbPass = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var dbSslMode = Environment.GetEnvironmentVariable("DB_SSLMODE");
+
+if (!string.IsNullOrWhiteSpace(dbHost) &&
+    !string.IsNullOrWhiteSpace(dbPort) &&
+    !string.IsNullOrWhiteSpace(dbName) &&
+    !string.IsNullOrWhiteSpace(dbUser) &&
+    !string.IsNullOrWhiteSpace(dbPass))
+{
+    // Default SSL mode: Disable in Development if not explicitly set; Require otherwise
+    var isDev = string.Equals(builder.Environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase);
+    var sslMode = !string.IsNullOrWhiteSpace(dbSslMode)
+        ? dbSslMode
+        : (isDev ? "Disable" : "Require");
+
+    builder.Configuration["ConnectionStrings:DefaultConnection"] =
+        $"Host={dbHost};" +
+        $"Port={dbPort};" +
+        $"Database={dbName};" +
+        $"Username={dbUser};" +
+        $"Password={dbPass};" +
+        $"Ssl Mode={sslMode};Timeout=120;Command Timeout=30;Maximum Pool Size=100;" +
+        "Minimum Pool Size=2;Connection Idle Lifetime=300;Connection Pruning Interval=10;" +
+        "Search Path=public;Pooling=true;Enlist=false;No Reset On Close=true;";
+}
 
 builder.Configuration["CloudinarySettings:CloudName"] = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
 builder.Configuration["CloudinarySettings:ApiKey"] = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
@@ -70,6 +113,7 @@ builder.Services.Configure<TempFilesSettings>(builder.Configuration.GetSection("
 
 // Configure SupabaseSettings - this will correctly pick up from environment variables now
 builder.Services.Configure<SupabaseSettings>(builder.Configuration.GetSection("Supabase"));
+builder.Services.Configure<PricingSettings>(builder.Configuration.GetSection("Pricing"));
 
 // Add JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -320,6 +364,19 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    // Try applying EF Core migrations automatically in Development
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+        Console.WriteLine("[DB] Migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[DB] Migration failed: {ex.Message}");
+    }
+
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {

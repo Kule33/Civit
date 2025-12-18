@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Filter, Download, ChevronUp, ChevronDown, Menu, FileText, GripVertical, MessageSquare } from 'lucide-react';
+import { Search, Filter, Download, ChevronUp, ChevronDown, Menu, FileText, GripVertical, MessageSquare, Wallet } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -10,6 +10,7 @@ import QuestionCard from '../../components/QuestionCard.jsx';
 import SelectedQuestionsSidebar from '../../components/SelectedQuestionsSidebar.jsx';
 import { TypesetRequestModal } from '../../components/Paper-builder/TypesetRequestModal.jsx';
 import { useSubmission } from '../../context/SubmissionContext';
+import { useAuth } from '../../context/AuthProvider';
 import { useMetadata } from '../../hooks/useMetadata.js';
 import { useAdvancedPaperGeneration } from '../../hooks/useAdvancedPaperGeneration.jsx';
 import { useTypesetRequests } from '../../hooks/useTypesetRequests.js';
@@ -30,12 +31,14 @@ const PaperBuilder = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isViewingSelectedQuestions, setIsViewingSelectedQuestions] = useState(false);
   const [questionComments, setQuestionComments] = useState({});
+  const [questionPrice, setQuestionPrice] = useState(50.0); // Default price
   
   // Typeset request state
   const [showTypesetModal, setShowTypesetModal] = useState(false);
   const [lastGeneratedPaper, setLastGeneratedPaper] = useState(null);
 
   const { showOverlay } = useSubmission();
+  const { userProfile, refreshProfile } = useAuth();
   
   // Advanced PDF generation hook
   const { generatePDF } = useAdvancedPaperGeneration();
@@ -77,6 +80,26 @@ const PaperBuilder = () => {
       updateMetadata('country', 'sri_lanka');
     }
   }, [metadata.country, updateMetadata]);
+
+  // Fetch question price from backend configuration
+  useEffect(() => {
+    const fetchQuestionPrice = async () => {
+      try {
+        // You can create an API endpoint to fetch this, or hardcode for now
+        // For now, we'll use the default value of 50 LKR
+        setQuestionPrice(50.0);
+      } catch (error) {
+        console.error('Failed to fetch question price:', error);
+        setQuestionPrice(50.0); // Fallback to default
+      }
+    };
+    fetchQuestionPrice();
+  }, []);
+
+  // Calculate paper fee based on selected questions
+  const paperFee = useMemo(() => {
+    return selectedQuestions.length * questionPrice;
+  }, [selectedQuestions.length, questionPrice]);
 
   const handleFilterChange = (field, value) => {
     updateMetadata(field, value);
@@ -416,11 +439,74 @@ const PaperBuilder = () => {
 
   return (
     <div className="space-y-6 pb-6">
+      {/* Compact Floating Balance Bar - Desktop */}
+      <div className="fixed top-15 right-6 left-6 z-30 hidden md:block lg:left-auto lg:right-6 lg:w-auto">
+        <div className="bg-white shadow-lg rounded-lg border border-blue-200 px-4 py-2">
+          <div className="flex items-center justify-end gap-6">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-blue-600" />
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs text-gray-500">Balance:</span>
+                <span className="text-sm font-bold text-blue-700">
+                  LKR {userProfile?.balance?.toFixed(2) || '0.00'}
+                </span>
+              </div>
+            </div>
+            <div className="h-6 w-px bg-gray-300"></div>
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-gray-600" />
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs text-gray-500">Questions:</span>
+                <span className="text-sm font-bold text-gray-900">{selectedQuestions.length}</span>
+              </div>
+            </div>
+            <div className="h-6 w-px bg-gray-300"></div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs ${paperFee > (userProfile?.balance || 0) ? 'text-red-500' : 'text-gray-500'}`}>
+                {paperFee > (userProfile?.balance || 0) ? '⚠️' : '💰'} Fee:
+              </span>
+              <span className={`text-sm font-bold ${
+                paperFee > (userProfile?.balance || 0) ? 'text-red-600' : 'text-green-600'
+              }`}>
+                LKR {paperFee.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Floating Balance (Bottom) */}
+      <div className="fixed bottom-4 left-4 right-4 z-40 md:hidden">
+        <div className="bg-white shadow-lg rounded-lg border border-blue-200 p-2">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1">
+              <Wallet className="h-3 w-3 text-blue-600" />
+              <span className="font-bold text-blue-700">
+                {userProfile?.balance?.toFixed(0) || '0'}
+              </span>
+            </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            <div className="flex items-center gap-1">
+              <FileText className="h-3 w-3 text-gray-600" />
+              <span className="font-bold text-gray-900">{selectedQuestions.length}</span>
+            </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            <div className="flex items-center gap-1">
+              <span className={`font-bold ${
+                paperFee > (userProfile?.balance || 0) ? 'text-red-600' : 'text-green-600'
+              }`}>
+                {paperFee.toFixed(0)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <PageHeader
         title="Paper Builder"
         subtitle="Search for questions and build custom papers"
         actions={
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Mobile sidebar toggle */}
             <Button
               variant="secondary"

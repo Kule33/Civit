@@ -42,6 +42,9 @@ public class UserProfile
     [RegularExpression(@"^(admin|teacher)$", ErrorMessage = "Role must be admin or teacher")]
     public string Role { get; set; } = "teacher";
 
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal Balance { get; set; } = 0;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

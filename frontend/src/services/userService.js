@@ -1,42 +1,18 @@
-import axios from 'axios';
-import { supabase } from '../supabaseClient';
+import apiClient from './apiClient';
 
 const API_BASE_URL = 'http://localhost:5201/api/userprofiles';
 
-// Helper function to get the authorization header with the current Supabase JWT
-// Can optionally accept a session token to avoid calling getSession() again
+// Helper function to get the authorization header using stored token
 const getAuthHeaders = async (accessToken = null) => {
-  console.log('[userService] Getting auth headers...', accessToken ? 'Using provided token' : 'Fetching session');
-  
-  try {
-    let token = accessToken;
-    
-    if (!token) {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('[userService] getSession completed:', error ? 'Error' : 'Success', session ? 'Has session' : 'No session');
-      
-      if (error) {
-        console.error('[userService] Error getting Supabase session:', error);
-        throw new Error('Authentication session not found.');
-      }
-      if (!session || !session.access_token) {
-        throw new Error('No active session or access token found. User might not be logged in.');
-      }
-      token = session.access_token;
-    }
-    
-    console.log('[userService] Returning auth headers with token');
-    return {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      timeout: 10000, // 10 second timeout
-    };
-  } catch (err) {
-    console.error('[userService] Exception in getAuthHeaders:', err);
-    throw err;
-  }
+  const token = accessToken || localStorage.getItem('auth_token');
+  if (!token) throw new Error('No auth token');
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    timeout: 10000,
+  };
 };
 
 /**
@@ -50,7 +26,7 @@ export const getMyProfile = async (accessToken = null) => {
     console.log('[userService] Getting auth headers for profile fetch...');
     const authHeaders = await getAuthHeaders(accessToken);
     console.log('[userService] Auth headers obtained, making API call to', `${API_BASE_URL}/me`);
-    const response = await axios.get(`${API_BASE_URL}/me`, authHeaders);
+    const response = await apiClient.get(`${API_BASE_URL}/me`, authHeaders);
     console.log('[userService] Profile API response received:', response.status);
     return response.data;
   } catch (error) {
@@ -72,7 +48,7 @@ export const createProfile = async (profileData) => {
     const { id: _id, role: _role, ...dataWithoutIdAndRole } = profileData;
     
     const authHeaders = await getAuthHeaders();
-    const response = await axios.post(API_BASE_URL, dataWithoutIdAndRole, authHeaders);
+    const response = await apiClient.post(API_BASE_URL, dataWithoutIdAndRole, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 409) {
@@ -93,7 +69,7 @@ export const createProfile = async (profileData) => {
 export const updateMyProfile = async (profileData) => {
   try {
     const authHeaders = await getAuthHeaders();
-    const response = await axios.put(`${API_BASE_URL}/me`, profileData, authHeaders);
+    const response = await apiClient.put(`${API_BASE_URL}/me`, profileData, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {
@@ -118,7 +94,7 @@ export const updateMyProfile = async (profileData) => {
 export const updateProfile = async (id, profileData) => {
   try {
     const authHeaders = await getAuthHeaders();
-    const response = await axios.put(`${API_BASE_URL}/${id}`, profileData, authHeaders);
+    const response = await apiClient.put(`${API_BASE_URL}/${id}`, profileData, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {
@@ -144,7 +120,7 @@ export const updateProfile = async (id, profileData) => {
 export const getAllProfiles = async () => {
   try {
     const authHeaders = await getAuthHeaders();
-    const response = await axios.get(API_BASE_URL, authHeaders);
+    const response = await apiClient.get(API_BASE_URL, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 403) {
@@ -162,7 +138,7 @@ export const getAllProfiles = async () => {
 export const getProfileById = async (id) => {
   try {
     const authHeaders = await getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/${id}`, authHeaders);
+    const response = await apiClient.get(`${API_BASE_URL}/${id}`, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {
@@ -184,7 +160,7 @@ export const getProfileById = async (id) => {
 export const changeUserRole = async (id, newRole) => {
   try {
     const authHeaders = await getAuthHeaders();
-    const response = await axios.put(`${API_BASE_URL}/${id}/role`, { role: newRole }, authHeaders);
+    const response = await apiClient.put(`${API_BASE_URL}/${id}/role`, { role: newRole }, authHeaders);
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {

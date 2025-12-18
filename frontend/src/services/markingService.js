@@ -1,22 +1,16 @@
 // frontend/src/services/markingService.js
 import axios from 'axios';
-import { supabase } from '../supabaseClient';
+import apiClient from './apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5201';
 
 // Get auth headers from Supabase session
 const getAuthHeaders = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) {
-    console.error("Error getting Supabase session:", error);
-    throw new Error("Authentication session not found.");
-  }
-  if (!session || !session.access_token) {
-    throw new Error("No active session or access token found. User might not be logged in.");
-  }
+  const token = localStorage.getItem('auth_token');
+  if (!token) throw new Error('No auth token');
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`
+    'Authorization': `Bearer ${token}`
   };
 };
 
@@ -31,7 +25,7 @@ export const uploadMarkingToCloudinary = async (file, metadata, onProgress) => {
   try {
     // Step 1: Get Cloudinary signature from backend
     const headers = await getAuthHeaders();
-    const signatureResponse = await axios.post(
+    const signatureResponse = await apiClient.post(
       `${API_BASE_URL}/api/cloudinary/signature`,
       {
         folder: `markings/${metadata.country}/${metadata.examType}/${metadata.subject}`,
@@ -83,7 +77,7 @@ export const uploadMarkingToCloudinary = async (file, metadata, onProgress) => {
 export const saveMarkingMetadata = async (markingData) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await axios.post(
+    const response = await apiClient.post(
       `${API_BASE_URL}/api/markings/upload`,
       markingData,
       { headers }
@@ -103,7 +97,7 @@ export const saveMarkingMetadata = async (markingData) => {
 export const searchMarkings = async (searchCriteria) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/api/markings`, {
+    const response = await apiClient.get(`${API_BASE_URL}/api/markings`, {
       params: searchCriteria,
       headers,
     });
@@ -122,7 +116,7 @@ export const searchMarkings = async (searchCriteria) => {
 export const getMarkingById = async (markingId) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/api/markings/${markingId}`, {
+    const response = await apiClient.get(`${API_BASE_URL}/api/markings/${markingId}`, {
       headers,
     });
     return response.data;
@@ -140,7 +134,7 @@ export const getMarkingById = async (markingId) => {
 export const getSignedUrl = async (publicId) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await axios.post(
+    const response = await apiClient.post(
       `${API_BASE_URL}/api/cloudinary/signed-url`,
       {
         publicId: publicId,
@@ -164,7 +158,7 @@ export const getSignedUrl = async (publicId) => {
 export const downloadMarking = async (markingId) => {
   try {
     const headers = await getAuthHeaders();
-    await axios.post(
+    await apiClient.post(
       `${API_BASE_URL}/api/markings/${markingId}/download`,
       {},
       { headers }
@@ -183,7 +177,7 @@ export const downloadMarking = async (markingId) => {
 export const deleteMarking = async (markingId) => {
   try {
     const headers = await getAuthHeaders();
-    await axios.delete(`${API_BASE_URL}/api/markings/${markingId}`, {
+    await apiClient.delete(`${API_BASE_URL}/api/markings/${markingId}`, {
       headers,
     });
   } catch (error) {

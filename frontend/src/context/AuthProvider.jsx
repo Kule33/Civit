@@ -1,6 +1,8 @@
 // frontend/src/context/AuthProvider.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // Import your Supabase client
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { supabase } from '../supabaseClient'; // Kept for backwards compatibility
+import * as authApi from '../services/authService';
+import apiClient from '../services/apiClient';
 import { getMyProfile } from '../services/userService';
 
 const AuthContext = createContext();
@@ -12,6 +14,8 @@ export const AuthProvider = ({ children }) => {
   const [isTeacher, setIsTeacher] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const lastAccessTokenRef = useRef(null);
+  const lastProfileFetchTsRef = useRef(0);
 
   console.log('AuthProvider initialized');
 
@@ -108,6 +112,15 @@ export const AuthProvider = ({ children }) => {
         if (!isMounted) return;
         
         if (session) {
+          // Avoid duplicate fetches on React.StrictMode double-mount or rapid events
+          const now = Date.now();
+          if (lastAccessTokenRef.current === session.access_token && userProfile && (now - lastProfileFetchTsRef.current) < 2000) {
+            console.log('Skipping profile refetch (duplicate event within 2s with same token)');
+            setLoading(false);
+            return;
+          }
+          lastAccessTokenRef.current = session.access_token;
+
           console.log('Setting user from auth state change:', session.user.email);
           setUser(session.user);
           const userRole = session.user.user_metadata?.role;
@@ -122,11 +135,13 @@ export const AuthProvider = ({ children }) => {
             console.log('Profile fetched from auth state change:', profile);
             if (isMounted) {
               setUserProfile(profile);
+              lastProfileFetchTsRef.current = Date.now();
             }
           } catch (error) {
             console.log("Profile not found or error loading:", error.message);
             if (isMounted) {
               setUserProfile(null);
+              lastProfileFetchTsRef.current = Date.now();
             }
           } finally {
             if (isMounted) {
@@ -157,29 +172,37 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) throw error;
-    // The onAuthStateChange listener will handle setting user and roles
-    return data;
+    try {
+      // Call backend login, get access_token
+      const data = await authApi.login(email, password);
+      const accessToken = data.access_token || data?.session?.access_token;
+      const refreshToken = data.refresh_token || data?.session?.refresh_token;
+      if (!accessToken) throw new Error('Login failed: no access token');
+      // Store token in localStorage to avoid extra refreshes
+      localStorage.setItem('auth_token', accessToken);
+      if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+      // set default auth header
+      apiClient.defaults.headers = apiClient.defaults.headers || {};
+      apiClient.defaults.headers.Authorization = `Bearer ${accessToken}`;
+      // Fetch profile using token
+      const profile = await getMyProfile(accessToken);
+      setUserProfile(profile);
+      setUser({ email });
+      setIsTeacher(true);
+      return { access_token: accessToken };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signup = async (email, password) => { // Removed 'role' parameter
+  const signup = async (email, password) => {
     setLoading(true);
-    // HARDCODED ROLE TO 'teacher' for all new signups
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          role: 'teacher', // <--- CRITICAL FIX: Always 'teacher'
-        },
-        emailRedirectTo: `${window.location.origin}/login`, // Redirect to login after email confirmation
-      },
-    });
-    setLoading(false);
-    if (error) throw error;
-    return data;
+    try {
+      const data = await authApi.register(email, password, `${window.location.origin}/login`);
+      return data;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
@@ -194,6 +217,8 @@ export const AuthProvider = ({ children }) => {
       setIsTeacher(false);
       setUserProfile(null);
       setProfileLoading(false);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
       console.log('Logout successful');
     } catch (err) {
       console.error('Logout error:', err);
@@ -224,10 +249,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshProfile = async () => {
-    if (!user) return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
     setProfileLoading(true);
     try {
-      const profile = await getMyProfile();
+      const profile = await getMyProfile(token);
       setUserProfile(profile);
     } catch (error) {
       console.log("Error refreshing profile:", error.message);

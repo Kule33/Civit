@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { supabase } from '../supabaseClient';
+import apiClient from './apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5201';
 
@@ -54,14 +53,10 @@ const clearCache = (cacheKey) => {
 
 // Helper: Get authorization headers from Supabase session
 const getAuthHeaders = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  
-  if (error || !session) {
-    return null;
-  }
-  
+  const token = localStorage.getItem('auth_token');
+  if (!token) return null;
   return {
-    'Authorization': `Bearer ${session.access_token}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'
   };
 };
@@ -80,7 +75,7 @@ export const getUserNotifications = async (page = 1, pageSize = 10, isRead = nul
       params.isRead = isRead;
     }
 
-    const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
+    const response = await apiClient.get(`${API_BASE_URL}/api/notifications`, {
       headers,
       params,
       timeout: 30000,
@@ -114,7 +109,7 @@ export const getUnreadCount = async () => {
       return { unreadCount: 0 };
     }
 
-    const response = await axios.get(`${API_BASE_URL}/api/notifications/unread-count`, {
+    const response = await apiClient.get(`${API_BASE_URL}/api/notifications/unread-count`, {
       headers,
       timeout: 30000,
     });
@@ -136,7 +131,7 @@ export const markAsRead = async (notificationId) => {
       throw new Error('Not authenticated');
     }
 
-    const response = await axios.put(
+    const response = await apiClient.put(
       `${API_BASE_URL}/api/notifications/${notificationId}/read`,
       {},
       {
@@ -163,7 +158,7 @@ export const markAllAsRead = async () => {
       throw new Error('Not authenticated');
     }
 
-    const response = await axios.put(
+    const response = await apiClient.put(
       `${API_BASE_URL}/api/notifications/mark-all-read`,
       {},
       {
@@ -190,7 +185,7 @@ export const deleteNotification = async (notificationId) => {
       throw new Error('Not authenticated');
     }
 
-    const response = await axios.delete(
+    const response = await apiClient.delete(
       `${API_BASE_URL}/api/notifications/${notificationId}`,
       {
         headers,
