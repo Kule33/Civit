@@ -101,69 +101,69 @@ const QuestionCard = ({
 
       {/* Image preview section */}
       {variant === 'grid' ? (
-        <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
           {/* Question Image */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-full sm:w-20">
             {isImage ? (
               <img 
                 src={question.fileUrl} 
                 alt={question.subject?.name || 'Question'} 
-                className="w-20 h-20 object-cover rounded-md" 
+                className="w-full sm:w-20 h-32 sm:h-20 object-cover rounded-md" 
               />
             ) : (
-              <div className="w-20 h-20 bg-gray-50 flex items-center justify-center text-gray-400 text-xs rounded-md">
+              <div className="w-full sm:w-20 h-32 sm:h-20 bg-gray-50 flex items-center justify-center text-gray-400 text-xs rounded-md">
                 No Image
               </div>
             )}
           </div>
           
           {/* Question Content */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2">
+          <div className="flex-1 min-w-0 w-full">
+            <h3 className="font-medium text-sm sm:text-base text-gray-900 mb-2 line-clamp-2">
               {question.subject?.name || 'Unknown Subject'}
             </h3>
             
             {/* Metadata tags */}
-            <div className={`flex flex-wrap gap-1 text-gray-600 mb-2 ${getMetadataTextSize()}`}>
+            <div className={`flex flex-wrap gap-1.5 text-gray-600 mb-2 text-[10px] sm:${getMetadataTextSize()}`}>
               {question.country && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                <span className="bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                   {question.country}
                 </span>
               )}
               {question.examType && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                <span className="bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                   {question.examType}
                 </span>
               )}
               {question.paperCategory && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                <span className="bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                   {question.paperCategory}
                 </span>
               )}
               {question.paperType && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                <span className="bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                   {question.paperType}
                 </span>
               )}
               {question.year && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                <span className="bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                   {question.year}
                 </span>
               )}
               {question.term && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                <span className="bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                   {question.term}
                 </span>
               )}
             </div>
 
             {/* Additional details */}
-            <div className={`text-gray-700 space-y-1 ${getDetailsTextSize()}`}>
+            <div className={`text-gray-700 space-y-1 text-xs sm:${getDetailsTextSize()}`}>
               {question.school?.name && (
-                <p>School: {question.school.name}</p>
+                <p className="truncate">School: {question.school.name}</p>
               )}
               {question.uploader && (
-                <p>By: {question.uploader}</p>
+                <p className="truncate">By: {question.uploader}</p>
               )}
             </div>
 
@@ -181,12 +181,12 @@ const QuestionCard = ({
           </div>
           
           {/* Action Button */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
             <Button
               variant={isSelected ? "secondary" : "outline"}
               size="small"
               onClick={() => onSelect?.(question.id)}
-              className="w-32"
+              className="w-full sm:w-32"
             >
               {isSelected ? 'Selected' : 'Select'}
             </Button>

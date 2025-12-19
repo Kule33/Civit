@@ -1,5 +1,5 @@
 // frontend/src/routes/Teacher/Dashboard.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FileQuestion, 
@@ -62,10 +62,36 @@ const Dashboard = () => {
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(false);
   const { showOverlay } = useSubmission();
+  
+  // Use useRef to persist across React remounts (including StrictMode double-mount)
+  const dataLoadedRef = useRef(false);
 
-  // Load all data on mount
+  // Load all data on mount - only once per session
   useEffect(() => {
-    loadAllData();
+    // Try to restore cached data first
+    const cachedData = sessionStorage.getItem('dashboardData');
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setQuestions(parsed.questions || []);
+        setTypesets(parsed.typesets || []);
+        setPaperAnalytics(parsed.paperAnalytics || null);
+        setPapers(parsed.papers || []);
+        setMarkings(parsed.markings || []);
+        setTotalUsers(parsed.totalUsers || 0);
+        dataLoadedRef.current = true;
+        console.log('✅ Dashboard data restored from cache');
+        return;
+      } catch (error) {
+        console.error('Error restoring cached data:', error);
+        sessionStorage.removeItem('dashboardData');
+      }
+    }
+    
+    // Only load data if it hasn't been loaded yet in this session
+    if (!dataLoadedRef.current) {
+      loadAllData();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -73,9 +99,10 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
-      // Get session token first
+      // Get session token and user info first
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      const userRole = session?.user?.user_metadata?.role || 'teacher';
 
             // ⚡ OPTIMIZATION: Fetch all top-level data in parallel
       const [questionsData, analyticsResult, profilesData, papersData, markingsData] = await Promise.all([
@@ -87,7 +114,8 @@ const Dashboard = () => {
           console.error('Error loading paper analytics:', err);
           return null;
         }) : Promise.resolve(null),
-        token ? getAllProfiles().catch(err => {
+        // Only fetch profiles if user is admin
+        (token && userRole === 'admin') ? getAllProfiles().catch(err => {
           console.error('Error loading user profiles:', err);
           return [];
         }) : Promise.resolve([]),
@@ -141,7 +169,41 @@ const Dashboard = () => {
         const typesetsResults = await Promise.all(typesetPromises);
         const validTypesets = typesetsResults.filter(t => t !== null);
         setTypesets(validTypesets);
+        
+        // Cache the data to sessionStorage for quick restore on remount
+        try {
+          sessionStorage.setItem('dashboardData', JSON.stringify({
+            questions: questionsArray,
+            typesets: validTypesets,
+            paperAnalytics: processPaperAnalytics(analyticsResult),
+            papers: papersArray,
+            markings: markingsArray,
+            totalUsers: profilesArray.length
+          }));
+          console.log('✅ Dashboard data cached to sessionStorage');
+        } catch (error) {
+          console.error('Error caching dashboard data:', error);
+        }
+      } else {
+        // Cache even without typesets
+        try {
+          sessionStorage.setItem('dashboardData', JSON.stringify({
+            questions: questionsArray,
+            typesets: [],
+            paperAnalytics: processPaperAnalytics(analyticsResult),
+            papers: papersArray,
+            markings: markingsArray,
+            totalUsers: profilesArray.length
+          }));
+          console.log('✅ Dashboard data cached to sessionStorage');
+        } catch (error) {
+          console.error('Error caching dashboard data:', error);
+        }
       }
+      
+      // Mark data as loaded to prevent re-fetching on tab switches
+      // Using ref instead of state to persist across React remounts
+      dataLoadedRef.current = true;
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       showOverlay({
