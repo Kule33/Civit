@@ -70,27 +70,63 @@ const ManageQuestions = () => {
 
   const loadTypesetsForQuestions = async () => {
     try {
+      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       // Filter questions that have typesets
       const questionsWithTypesets = questions.filter(q => q.typesetAvailable);
       
-      // Fetch full typeset details for each
-      const typesetPromises = questionsWithTypesets.map(async (q) => {
-        const typeset = await getTypesetByQuestionId(q.id, token);
-        return {
-          ...typeset,
-          question: q
-        };
-      });
+      if (questionsWithTypesets.length === 0) {
+        setManageQuestionsState(prev => ({ ...prev, typesets: [] }));
+        setLoading(false);
+        return;
+      }
 
-      const typesetsData = await Promise.all(typesetPromises);
-      setManageQuestionsState(prev => ({ ...prev, typesets: typesetsData.filter(t => t !== null) }));
+      // Progressive fetch in batches so the UI can render partial results quickly.
+      const batchSize = 10;
+      const accumulated = [];
+
+      for (let i = 0; i < questionsWithTypesets.length; i += batchSize) {
+        const batch = questionsWithTypesets.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (q) => {
+            try {
+              const typeset = await getTypesetByQuestionId(q.id, token);
+              if (!typeset) return null;
+              return { ...typeset, question: q };
+            } catch (error) {
+              console.error(`Error loading typeset for question ${q.id}:`, error);
+              return null;
+            }
+          })
+        );
+
+        const valid = batchResults.filter(t => t !== null);
+        accumulated.push(...valid);
+
+        setManageQuestionsState(prev => ({ ...prev, typesets: [...accumulated] }));
+
+        // Stop blocking the tab after the first partial batch is available.
+        if (i === 0) {
+          setLoading(false);
+        }
+      }
     } catch (error) {
       console.error('Error loading typesets:', error);
+      showOverlay({
+        status: 'error',
+        message: 'Failed to load typesets',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    } finally {
+      setLoading(false);
     }
   };
 

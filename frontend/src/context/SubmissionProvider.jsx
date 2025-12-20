@@ -49,10 +49,38 @@ export const SubmissionProvider = ({ children }) => {
     []
   );
 
+  const defaultDashboardState = useMemo(
+    () => ({
+      questions: [],
+      typesets: [],
+      paperAnalytics: null,
+      papers: [],
+      markings: [],
+      totalUsers: 0,
+      loaded: false
+    }),
+    []
+  );
+
+  const defaultUsersAdminState = useMemo(
+    () => ({
+      profiles: [],
+      searchTerm: '',
+      districtFilter: '',
+      genderFilter: '',
+      roleFilter: '',
+      currentPage: 1,
+      loaded: false
+    }),
+    []
+  );
+
   // In-memory only: survives route changes, but resets on refresh.
   const [paperBuilder, setPaperBuilder] = useState(defaultPaperBuilderState);
   const [manageQuestions, setManageQuestions] = useState(defaultManageQuestionsState);
   const [typesetBuilder, setTypesetBuilder] = useState(defaultTypesetBuilderState);
+  const [dashboard, setDashboard] = useState(defaultDashboardState);
+  const [usersAdmin, setUsersAdmin] = useState(defaultUsersAdminState);
 
   // Clear PaperBuilder state when user logs out OR switches accounts
   useEffect(() => {
@@ -64,8 +92,10 @@ export const SubmissionProvider = ({ children }) => {
       setPaperBuilder(defaultPaperBuilderState);
       setManageQuestions(defaultManageQuestionsState);
       setTypesetBuilder(defaultTypesetBuilderState);
+      setDashboard(defaultDashboardState);
+      setUsersAdmin(defaultUsersAdminState);
     }
-  }, [user?.id, defaultPaperBuilderState, defaultManageQuestionsState, defaultTypesetBuilderState]);
+  }, [user?.id, defaultPaperBuilderState, defaultManageQuestionsState, defaultTypesetBuilderState, defaultDashboardState, defaultUsersAdminState]);
 
   const showOverlay = useCallback((options = {}) => {
     setOverlayState(prev => ({
@@ -148,6 +178,22 @@ export const SubmissionProvider = ({ children }) => {
     setTypesetBuilder(defaultTypesetBuilderState);
   }, [defaultTypesetBuilderState]);
 
+  const setDashboardState = useCallback((updater) => {
+    setDashboard(prev => (typeof updater === 'function' ? updater(prev) : updater));
+  }, []);
+
+  const clearDashboardState = useCallback(() => {
+    setDashboard(defaultDashboardState);
+  }, [defaultDashboardState]);
+
+  const setUsersAdminState = useCallback((updater) => {
+    setUsersAdmin(prev => (typeof updater === 'function' ? updater(prev) : updater));
+  }, []);
+
+  const clearUsersAdminState = useCallback(() => {
+    setUsersAdmin(defaultUsersAdminState);
+  }, [defaultUsersAdminState]);
+
   const value = useMemo(
     () => ({
       overlayState,
@@ -167,7 +213,13 @@ export const SubmissionProvider = ({ children }) => {
       clearManageQuestionsState,
       typesetBuilder,
       setTypesetBuilderState,
-      clearTypesetBuilderState
+      clearTypesetBuilderState,
+      dashboard,
+      setDashboardState,
+      clearDashboardState,
+      usersAdmin,
+      setUsersAdminState,
+      clearUsersAdminState
     }),
     [
       overlayState,
@@ -187,7 +239,13 @@ export const SubmissionProvider = ({ children }) => {
       clearManageQuestionsState,
       typesetBuilder,
       setTypesetBuilderState,
-      clearTypesetBuilderState
+      clearTypesetBuilderState,
+      dashboard,
+      setDashboardState,
+      clearDashboardState,
+      usersAdmin,
+      setUsersAdminState,
+      clearUsersAdminState
     ]
   );
 
