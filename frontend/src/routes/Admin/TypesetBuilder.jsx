@@ -1,5 +1,5 @@
 // frontend/src/routes/Admin/TypesetBuilder.jsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, Download, FileText, CheckSquare, Square, AlertCircle, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Card from '../../components/ui/card.jsx';
@@ -7,22 +7,40 @@ import Button from '../../components/ui/Button.jsx';
 import { searchQuestions } from '../../services/questionService';
 import { mergeDocuments, getTypesetByQuestionId } from '../../services/typesetService';
 import { supabase } from '../../supabaseClient';
+import { useSubmission } from '../../context/SubmissionContext';
 
 const TypesetBuilder = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [allQuestions, setAllQuestions] = useState([]);
-  const [filteredQuestions, setFilteredQuestions] = useState([]);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { typesetBuilder, setTypesetBuilderState } = useSubmission();
+
+  const searchQuery = typesetBuilder?.searchQuery ?? '';
+  const allQuestions = useMemo(() => typesetBuilder?.allQuestions ?? [], [typesetBuilder?.allQuestions]);
+  const filteredQuestions = useMemo(() => typesetBuilder?.filteredQuestions ?? [], [typesetBuilder?.filteredQuestions]);
+  const selectedFiles = useMemo(() => typesetBuilder?.selectedFiles ?? [], [typesetBuilder?.selectedFiles]);
+  const currentPage = typesetBuilder?.currentPage ?? 1;
+
+  const setSearchQuery = (value) => setTypesetBuilderState(prev => ({ ...prev, searchQuery: value }));
+  const setAllQuestions = (value) => setTypesetBuilderState(prev => ({ ...prev, allQuestions: Array.isArray(value) ? value : [] }));
+  const setFilteredQuestions = (value) => setTypesetBuilderState(prev => ({ ...prev, filteredQuestions: Array.isArray(value) ? value : [] }));
+  const setSelectedFiles = (updater) =>
+    setTypesetBuilderState(prev => {
+      const next = typeof updater === 'function' ? updater(prev.selectedFiles || []) : updater;
+      return { ...prev, selectedFiles: Array.isArray(next) ? next : [] };
+    });
+  const setCurrentPage = (value) => setTypesetBuilderState(prev => ({ ...prev, currentPage: value }));
+
+  const [isLoading, setIsLoading] = useState(() => allQuestions.length === 0);
   const [isMerging, setIsMerging] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25); // Show 25 items per page
 
   // Load all questions on mount
   React.useEffect(() => {
-    loadAllQuestions();
+    if (allQuestions.length === 0) {
+      loadAllQuestions();
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
   // Filter questions as user types

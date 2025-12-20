@@ -47,7 +47,7 @@ function App() {
 
   // If AuthProvider is still loading user OR profile, show a global loading indicator
   // Wait for both to complete to avoid brief flashes of wrong pages
-  if (authLoading || (user && profileLoading)) {
+    if (authLoading || (user && profileLoading && !userProfile)) {
     console.log('App showing loading screen - authLoading:', authLoading, 'profileLoading:', profileLoading);
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">

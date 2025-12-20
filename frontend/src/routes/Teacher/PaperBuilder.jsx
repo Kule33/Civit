@@ -20,16 +20,11 @@ import { savePdfToTemp } from '../../services/typesetRequestService.js';
 
 const PaperBuilder = () => {
   // Core state management for questions and UI
-  const [questions, setQuestions] = useState([]);
-  const [selectedQuestions, setSelectedQuestions] = useState([]);
-  const [selectedQuestionsOrdered, setSelectedQuestionsOrdered] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searchPerformed, setSearchPerformed] = useState(false);
   const [isFiltersMinimized, setIsFiltersMinimized] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isViewingSelectedQuestions, setIsViewingSelectedQuestions] = useState(false);
-  const [questionComments, setQuestionComments] = useState({});
   const [draggedQuestionIndex, setDraggedQuestionIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   
@@ -43,7 +38,34 @@ const PaperBuilder = () => {
   const [showTypesetModal, setShowTypesetModal] = useState(false);
   const [lastGeneratedPaper, setLastGeneratedPaper] = useState(null);
 
-  const { showOverlay } = useSubmission();
+  const {
+    showOverlay,
+    paperBuilder,
+    setPaperBuilderQuestions,
+    setPaperBuilderSearchPerformed,
+    setPaperBuilderMetadata,
+    setSelectedQuestionIds,
+    setSelectedQuestionsOrdered,
+    setPaperBuilderQuestionComments,
+    clearPaperBuilderState
+  } = useSubmission();
+
+  const questions = useMemo(
+    () => paperBuilder?.questions ?? [],
+    [paperBuilder?.questions]
+  );
+
+  const selectedQuestions = useMemo(
+    () => paperBuilder?.selectedQuestionIds ?? [],
+    [paperBuilder?.selectedQuestionIds]
+  );
+
+  const selectedQuestionsOrdered = useMemo(
+    () => paperBuilder?.selectedQuestionsOrdered ?? [],
+    [paperBuilder?.selectedQuestionsOrdered]
+  );
+  const searchPerformed = !!paperBuilder?.searchPerformed;
+  const questionComments = paperBuilder?.questionComments || {};
   
   // Advanced PDF generation hook
   const { generatePDF } = useAdvancedPaperGeneration();
@@ -54,30 +76,34 @@ const PaperBuilder = () => {
   // Sync selectedQuestionsOrdered when questions change (e.g., after new search)
   useEffect(() => {
     // Filter out any selected questions that are no longer in the current questions list
-    setSelectedQuestionsOrdered(prevOrdered => 
-      prevOrdered.filter(selectedQ => 
+    setSelectedQuestionsOrdered(prevOrdered =>
+      prevOrdered.filter(selectedQ =>
         questions.some(currentQ => currentQ.id === selectedQ.id)
       )
     );
-    
+
     // Also update selectedQuestions to remove any IDs that no longer exist
-    setSelectedQuestions(prevSelected => 
-      prevSelected.filter(id => 
+    setSelectedQuestionIds(prevSelected =>
+      prevSelected.filter(id =>
         questions.some(q => q.id === id)
       )
     );
-  }, [questions]);
+  }, [questions, setSelectedQuestionIds, setSelectedQuestionsOrdered]);
 
-  // Use the same metadata hook as QuestionUpload - with Sri Lanka as default
   const {
     metadata,
     availableOptions,
     updateMetadata,
     loading: metadataLoading,
     resetMetadata
-  } = useMetadata({
+  } = useMetadata(paperBuilder?.metadata || {
     country: 'sri_lanka'  // Default to Sri Lanka
   });
+
+  // Persist current filters in-memory so they restore when returning to the page
+  useEffect(() => {
+    setPaperBuilderMetadata(metadata);
+  }, [metadata, setPaperBuilderMetadata]);
 
   // Set country to Sri Lanka by default on component mount
   useEffect(() => {
@@ -118,12 +144,13 @@ const PaperBuilder = () => {
       // Use searchQuestions instead of direct axios
       const data = await searchQuestions(params);
       console.log('✅ Search results received:', data?.length || 0, 'questions');
-      setQuestions(Array.isArray(data) ? data : []);
-      setSearchPerformed(true);
+      setPaperBuilderQuestions(Array.isArray(data) ? data : []);
+      setPaperBuilderSearchPerformed(true);
     } catch (error) {
       const errorMessage = error.response?.data?.title || error.message || 'Failed to fetch questions. Please try again.';
       setError(errorMessage);
-      setQuestions([]);
+      setPaperBuilderQuestions([]);
+      setPaperBuilderSearchPerformed(true);
     } finally {
       setLoading(false);
     }
@@ -135,7 +162,7 @@ const PaperBuilder = () => {
    * @param {string|number} questionId - ID of the question to select/deselect
    */
   const handleQuestionSelect = useCallback((questionId) => {
-    setSelectedQuestions(prev => {
+    setSelectedQuestionIds(prev => {
       if (prev.includes(questionId)) {
         // Remove from selected questions
         const newSelected = prev.filter(id => id !== questionId);
@@ -161,7 +188,8 @@ const PaperBuilder = () => {
         return prevOrdered;
       }
     });
-  }, [questions]);
+  }, [questions, setSelectedQuestionIds, setSelectedQuestionsOrdered]);
+
 
   /**
    * Handles selecting/deselecting all questions
@@ -170,11 +198,11 @@ const PaperBuilder = () => {
   const handleSelectAll = () => {
     if (selectedQuestions.length === questions.length) {
       // Deselect all
-      setSelectedQuestions([]);
+      setSelectedQuestionIds([]);
       setSelectedQuestionsOrdered([]);
     } else {
       // Select all
-      setSelectedQuestions(questions.map(q => q.id));
+      setSelectedQuestionIds(questions.map(q => q.id));
       setSelectedQuestionsOrdered([...questions]);
     }
   };
@@ -184,10 +212,7 @@ const PaperBuilder = () => {
    */
   const handleClearFilters = () => {
     resetMetadata();
-    setQuestions([]);
-    setSelectedQuestions([]);
-    setSelectedQuestionsOrdered([]);
-    setSearchPerformed(false);
+    clearPaperBuilderState();
     setError('');
   };
 
@@ -280,6 +305,10 @@ const PaperBuilder = () => {
             autoClose: true,
             autoCloseDelay: 3000
           });
+
+          // Reset builder state after a successful download
+          clearPaperBuilderState();
+          setIsViewingSelectedQuestions(false);
 
           // Log paper generation for analytics (non-blocking)
           try {
@@ -434,7 +463,7 @@ const PaperBuilder = () => {
    * @param {string} comment - Comment text
    */
   const handleCommentChange = (questionId, comment) => {
-    setQuestionComments(prev => ({
+    setPaperBuilderQuestionComments(prev => ({
       ...prev,
       [questionId]: comment
     }));
