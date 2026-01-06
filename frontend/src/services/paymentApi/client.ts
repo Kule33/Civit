@@ -18,6 +18,7 @@ const getAuthToken = () => {
 
 paymentApiClient.interceptors.request.use((config) => {
   const token = getAuthToken();
+  console.log("🚀 [paymentApiClient] Attaching token:", token);
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;

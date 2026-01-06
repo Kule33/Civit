@@ -108,6 +108,32 @@ builder.Configuration["EmailSettings:SmtpPassword"] = Environment.GetEnvironment
 builder.Configuration["EmailSettings:SenderEmail"] = Environment.GetEnvironmentVariable("SENDER_EMAIL");
 builder.Configuration["EmailSettings:SenderName"] = Environment.GetEnvironmentVariable("SENDER_NAME");
 
+// Configure S2S Authentication Keys from environment variables
+var oldApiKey = Environment.GetEnvironmentVariable("OLD_S2S_API_KEY");
+var newApiKey = Environment.GetEnvironmentVariable("NEW_S2S_API_KEY");
+var oldHmacSecret = Environment.GetEnvironmentVariable("OLD_S2S_HMAC_SECRET");
+var newHmacSecret = Environment.GetEnvironmentVariable("NEW_S2S_HMAC_SECRET");
+
+var apiKeysList = new List<string>();
+if (!string.IsNullOrWhiteSpace(oldApiKey)) apiKeysList.Add(oldApiKey);
+if (!string.IsNullOrWhiteSpace(newApiKey)) apiKeysList.Add(newApiKey);
+
+var hmacSecretsList = new List<string>();
+if (!string.IsNullOrWhiteSpace(oldHmacSecret)) hmacSecretsList.Add(oldHmacSecret);
+if (!string.IsNullOrWhiteSpace(newHmacSecret)) hmacSecretsList.Add(newHmacSecret);
+
+// Populate S2S arrays in configuration
+for (int i = 0; i < apiKeysList.Count; i++)
+{
+    builder.Configuration[$"S2S:ApiKeys:{i}"] = apiKeysList[i];
+}
+for (int i = 0; i < hmacSecretsList.Count; i++)
+{
+    builder.Configuration[$"S2S:HmacSecrets:{i}"] = hmacSecretsList[i];
+}
+
+Console.WriteLine($"[S2S Config] Loaded {apiKeysList.Count} API keys and {hmacSecretsList.Count} HMAC secrets from environment");
+
 // Add services to the container.
 
 // Configure AppSettings
@@ -333,6 +359,9 @@ builder.Services.AddScoped<IQuestionService, QuestionService>(provider =>
 
 // Register HttpClient for API calls
 builder.Services.AddHttpClient();
+
+// Memory cache for NotificationsController
+builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers();
 

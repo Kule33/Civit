@@ -38,9 +38,12 @@ namespace backend.Security
 
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
         {
+            Console.WriteLine("[S2S] Authorization started");
+
             if (_mode == S2SAuthorizationMode.JwtOrS2S &&
                 (context.HttpContext.User?.Identity?.IsAuthenticated ?? false))
             {
+                Console.WriteLine("[S2S] JWT already authenticated; skipping S2S check");
                 return;
             }
 
@@ -50,54 +53,64 @@ namespace backend.Security
             var timestamp = request.Headers["x-timestamp"].ToString();
             var nonce = request.Headers["x-nonce"].ToString();
 
+            Console.WriteLine("[S2S Filter] Received request headers:");
+            Console.WriteLine($"  x-api-key: {(string.IsNullOrWhiteSpace(apiKey) ? "NOT SET" : apiKey)}");
+            Console.WriteLine($"  x-signature: {(string.IsNullOrWhiteSpace(signature) ? "NOT SET" : signature.Substring(0, Math.Min(20, signature.Length)) + "...")}");
+            Console.WriteLine($"  x-timestamp: {(string.IsNullOrWhiteSpace(timestamp) ? "NOT SET" : timestamp)}");
+            Console.WriteLine($"  x-nonce: {(string.IsNullOrWhiteSpace(nonce) ? "NOT SET" : nonce)}");
+
             if (string.IsNullOrWhiteSpace(apiKey) ||
                 string.IsNullOrWhiteSpace(signature) ||
                 string.IsNullOrWhiteSpace(timestamp) ||
                 string.IsNullOrWhiteSpace(nonce))
             {
+                Console.WriteLine("[S2S Filter] ❌ Missing required headers (api-key/signature/timestamp/nonce)");
                 context.Result = new UnauthorizedObjectResult("Unauthorized: Missing S2S headers");
                 return;
             }
 
-            var apiKeys = GetConfiguredSecrets(
-                "S2S:ApiKeys",
-                "S2S:ApiKey",
-                "PAPERMAKER_API_KEY",
-                "S2S_API_KEY",
-                "S2S_API_KEYS");
+            var apiKeys = GetConfiguredSecrets("S2S:ApiKeys");
+            var hmacSecrets = GetConfiguredSecrets("S2S:HmacSecrets");
 
-            var hmacSecrets = GetConfiguredSecrets(
-                "S2S:HmacSecrets",
-                "S2S:HmacSecret",
-                "PAPERMAKER_HMAC_SECRET",
-                "S2S_HMAC_SECRET",
-                "S2S_HMAC_SECRETS");
+            Console.WriteLine($"[S2S Filter] Configured API keys count: {apiKeys.Length}");
+            Console.WriteLine($"[S2S Filter] Configured HMAC secrets count: {hmacSecrets.Length}");
 
             if (apiKeys.Length == 0 || hmacSecrets.Length == 0)
             {
+                Console.WriteLine("[S2S Filter] ❌ No API keys or HMAC secrets configured");
                 context.Result = new UnauthorizedObjectResult("Unauthorized: S2S keys not configured");
                 return;
             }
 
             if (!apiKeys.Any(k => string.Equals(k, apiKey, StringComparison.Ordinal)))
             {
+                Console.WriteLine($"[S2S Filter] ❌ Invalid API key. Received: {apiKey}");
+                Console.WriteLine($"[S2S Filter] Expected one of: {string.Join(", ", apiKeys.Select(k => k.Substring(0, Math.Min(10, k.Length)) + "..."))}");
                 context.Result = new UnauthorizedObjectResult("Unauthorized: Invalid API key");
                 return;
             }
 
+            Console.WriteLine("[S2S Filter] ✅ API key is valid");
+
             // Replay protection (5 min window)
             if (!long.TryParse(timestamp, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ts))
             {
+                Console.WriteLine($"[S2S Filter] ❌ Invalid timestamp format: {timestamp}");
                 context.Result = new UnauthorizedObjectResult("Unauthorized: Invalid timestamp");
                 return;
             }
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            if (Math.Abs(now - ts) > 300)
+            var timeDiff = Math.Abs(now - ts);
+            Console.WriteLine($"[S2S Filter] Timestamp validation: now={now}, received={ts}, diff={timeDiff}s");
+            if (timeDiff > 300)
             {
+                Console.WriteLine($"[S2S Filter] ❌ Timestamp expired or too far in the future (diff > 300s)");
                 context.Result = new UnauthorizedObjectResult("Unauthorized: Expired");
                 return;
             }
+
+            Console.WriteLine("[S2S Filter] ✅ Timestamp is valid");
 
             request.EnableBuffering();
             if (request.Body.CanSeek)
@@ -120,82 +133,65 @@ namespace backend.Security
             var pathAndQuery = (request.PathBase + request.Path + request.QueryString).ToString();
             var payload = methodUpper + pathAndQuery + timestamp + nonce + rawBody;
 
+            Console.WriteLine("[S2S Filter] Canonical string for signature:");
+            Console.WriteLine($"  Method: {methodUpper}");
+            Console.WriteLine($"  Path+Query: {pathAndQuery}");
+            Console.WriteLine($"  Timestamp: {timestamp}");
+            Console.WriteLine($"  Nonce: {nonce}");
+            Console.WriteLine($"  Body: {rawBody}");
+            Console.WriteLine($"  Full Payload: {payload}");
+
             var receivedSig = signature.Trim().ToLowerInvariant();
-            var isValid = hmacSecrets.Any(secret =>
+            Console.WriteLine($"[S2S Filter] Received signature: {receivedSig}");
+            
+            var isValid = false;
+            string? matchedSecret = null;
+            foreach (var secret in hmacSecrets)
             {
                 var computed = ComputeHmacSha256HexLower(secret, payload);
-                return FixedTimeEquals(receivedSig, computed);
-            });
+                Console.WriteLine($"[S2S Filter] Trying secret ({secret.Substring(0, Math.Min(10, secret.Length))}...)");
+                Console.WriteLine($"  Computed signature: {computed}");
+                
+                if (FixedTimeEquals(receivedSig, computed))
+                {
+                    isValid = true;
+                    matchedSecret = secret.Substring(0, Math.Min(10, secret.Length)) + "...";
+                    Console.WriteLine($"  ✅ Signature match!");
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine($"  ❌ Signature mismatch");
+                }
+            }
 
             if (!isValid)
             {
+                Console.WriteLine("[S2S Filter] ❌ Signature validation FAILED for all secrets");
                 context.Result = new UnauthorizedObjectResult("Unauthorized: Signature mismatch");
                 return;
             }
 
+            Console.WriteLine($"[S2S Filter] ✅ Authorization succeeded with secret {matchedSecret}");
             context.HttpContext.Items[S2SConstants.IsAuthenticatedItemKey] = true;
             context.HttpContext.Items[S2SConstants.ApiKeyItemKey] = apiKey;
         }
 
-        private string[] GetConfiguredSecrets(
-            string configArrayKey,
-            string configSingleKey,
-            params string[] envKeys)
+        private string[] GetConfiguredSecrets(string configArrayKey)
         {
-            // Prefer array form in appsettings: "S2S": { "ApiKeys": ["..."] }
+            // Load ONLY from appsettings array: "S2S": { "ApiKeys": [...], "HmacSecrets": [...] }
+            // These arrays are populated in Program.cs from environment variables
             var fromArray = _configuration.GetSection(configArrayKey).Get<string[]>();
             if (fromArray != null && fromArray.Length > 0)
             {
                 return fromArray
-                    .Select(NormalizeConfiguredSecret)
                     .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim())
                     .Distinct(StringComparer.Ordinal)
                     .ToArray();
             }
 
-            // Fallback to single keys (config or env), supporting comma-separated lists.
-            var candidates = new List<string?>
-            {
-                _configuration[configSingleKey]
-            };
-
-            foreach (var envKey in envKeys)
-            {
-                candidates.Add(Environment.GetEnvironmentVariable(envKey));
-            }
-
-            var raw = candidates.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? string.Empty;
-            return raw
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(NormalizeConfiguredSecret)
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-        }
-
-        private static string NormalizeConfiguredSecret(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
-
-            var trimmed = value.Trim();
-
-            // Allow accidentally-pasted formats like "Key=pm_secret_test_key".
-            var eqIndex = trimmed.IndexOf('=');
-            if (eqIndex > -1 && eqIndex < trimmed.Length - 1)
-            {
-                var left = trimmed[..eqIndex].Trim();
-                if (left.Equals("key", StringComparison.OrdinalIgnoreCase) ||
-                    left.Equals("apikey", StringComparison.OrdinalIgnoreCase) ||
-                    left.Equals("api_key", StringComparison.OrdinalIgnoreCase) ||
-                    left.Equals("secret", StringComparison.OrdinalIgnoreCase) ||
-                    left.Equals("hmac", StringComparison.OrdinalIgnoreCase) ||
-                    left.Equals("hmac_secret", StringComparison.OrdinalIgnoreCase))
-                {
-                    return trimmed[(eqIndex + 1)..].Trim();
-                }
-            }
-
-            return trimmed;
+            return Array.Empty<string>();
         }
 
         private static string ComputeHmacSha256HexLower(string secret, string payload)

@@ -55,6 +55,7 @@ namespace backend.Controllers
 
                 if (string.IsNullOrEmpty(userId))
                 {
+                    Console.WriteLine("🚀 User ID is missing in payment request");
                     _logger.LogWarning("Card payment attempt without valid user ID");
                     return Unauthorized(new PaymentResponseDto
                     {

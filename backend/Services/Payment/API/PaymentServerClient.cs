@@ -75,6 +75,22 @@ namespace backend.Services.Payment.API
             var signatureString = method.Method.ToUpperInvariant() + requestUri + timestamp + nonce + jsonBody;
             var signatureHex = ComputeHmacSha256HexLower(signatureString, _hmacSecret);
 
+            Console.WriteLine("\n╔════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║         [PaymentServerClient] S2S REQUEST SECURITY DETAILS       ║");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+            Console.WriteLine($"[REQUEST] {method.Method.ToUpperInvariant()} {_paymentServerUrl}{requestUri}");
+            Console.WriteLine("\n[PAYLOAD SIGNING]");
+            Console.WriteLine($"  Canonical String:\n    {signatureString}");
+            Console.WriteLine($"\n[SECURITY HEADERS]");
+            Console.WriteLine($"  x-api-key:      {_apiKey}");
+            Console.WriteLine($"  x-timestamp:    {timestamp}");
+            Console.WriteLine($"  x-nonce:        {nonce}");
+            Console.WriteLine($"  x-signature:    {signatureHex}");
+            Console.WriteLine($"  Idempotency-Key: {resolvedIdempotencyKey}");
+            Console.WriteLine($"\n[SECRET INFO]");
+            Console.WriteLine($"  HMAC Secret: {(_hmacSecret?.Length > 0 ? _hmacSecret.Substring(0, Math.Min(15, _hmacSecret.Length)) + "..." : "NOT SET")}");
+            Console.WriteLine("╔════════════════════════════════════════════════════════════════╗\n");;
+
             var request = new HttpRequestMessage(method, requestUri)
             {
                 Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
@@ -85,6 +101,13 @@ namespace backend.Services.Payment.API
             request.Headers.Add("x-nonce", nonce);
             request.Headers.Add("x-signature", signatureHex);
             request.Headers.Add("Idempotency-Key", resolvedIdempotencyKey);
+
+            Console.WriteLine("[PaymentServerClient] ✅ S2S Headers Ready to Send:");
+            Console.WriteLine($"  ├─ x-api-key:       {_apiKey}");
+            Console.WriteLine($"  ├─ x-timestamp:     {timestamp}");
+            Console.WriteLine($"  ├─ x-nonce:         {nonce}");
+            Console.WriteLine($"  ├─ x-signature:     {signatureHex}");
+            Console.WriteLine($"  └─ Idempotency-Key: {resolvedIdempotencyKey}\n");
 
             return await _httpClient.SendAsync(request);
         }
@@ -122,6 +145,8 @@ namespace backend.Services.Payment.API
                     {
                         Console.WriteLine($"Attempt {attempt} to call payment server..."+
                             $" IdempotencyKey={idempotencyKey}"+"requst :"+request.ToString());
+                            Console.WriteLine("x-api-key: "+ _apiKey);
+                            Console.WriteLine("x-hmac-signature: "+ _hmacSecret);
                         response = await SendSignedRequestAsync(
                             HttpMethod.Post,
                             "/api/v1/payments/intents",
@@ -167,6 +192,9 @@ namespace backend.Services.Payment.API
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[PaymentServerClient] ❌ Payment server error response:");
+                    Console.WriteLine($"  StatusCode: {response.StatusCode}");
+                    Console.WriteLine($"  Content: {errorContent}");
                     _logger.LogError(
                         "Payment server returned error: StatusCode={StatusCode}, IdempotencyKey={IdempotencyKey}, Content={Content}",
                         response.StatusCode, idempotencyKey, errorContent);
@@ -174,6 +202,9 @@ namespace backend.Services.Payment.API
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[PaymentServerClient] ✅ Payment server response:");
+                Console.WriteLine($"  StatusCode: {response.StatusCode}");
+                Console.WriteLine($"  Content: {responseContent}");
                 if (string.IsNullOrWhiteSpace(responseContent))
                 {
                     _logger.LogWarning("Payment server returned empty response body");
