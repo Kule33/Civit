@@ -4,7 +4,8 @@ using backend.Repositories;
 using backend.Repositories.Interfaces;
 using backend.Services;
 using backend.Services.Interfaces;
-using backend.Middleware; // Import our custom middleware
+using backend.Models;
+using Npgsql;
 using Microsoft.EntityFrameworkCore;
 using CloudinaryDotNet;
 using Microsoft.OpenApi.Models;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Options; // Ensure this is present if using IOptions<
 using System.Security.Claims;
 using System.Text.Json;
 using DotNetEnv;
+using Microsoft.AspNetCore.HttpOverrides;
 
 // Load environment variables from .env file
 Env.Load();
@@ -37,19 +39,62 @@ if (!string.IsNullOrWhiteSpace(flatServiceKey))
 {
     Environment.SetEnvironmentVariable("Supabase__ServiceRoleKey", flatServiceKey);
 }
+var flatAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+if (!string.IsNullOrWhiteSpace(flatAnonKey))
+{
+    Environment.SetEnvironmentVariable("Supabase__AnonKey", flatAnonKey);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Override configuration with environment variables
-builder.Configuration["ConnectionStrings:DefaultConnection"] = 
-    $"Host={Environment.GetEnvironmentVariable("DB_HOST")};" +
-    $"Port={Environment.GetEnvironmentVariable("DB_PORT")};" +
-    $"Database={Environment.GetEnvironmentVariable("DB_NAME")};" +
-    $"Username={Environment.GetEnvironmentVariable("DB_USERNAME")};" +
-    $"Password={Environment.GetEnvironmentVariable("DB_PASSWORD")};" +
-    "Ssl Mode=Require;Timeout=120;Command Timeout=30;Maximum Pool Size=100;" +
-    "Minimum Pool Size=2;Connection Idle Lifetime=300;Connection Pruning Interval=10;" +
-    "Search Path=public;Pooling=true;Enlist=false;No Reset On Close=true;";
+// Ensure environment variables are included in configuration
+builder.Configuration.AddEnvironmentVariables();
+
+// Explicitly bind Supabase settings from environment variables into configuration
+var envSupabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_PROJECT_URL");
+var envSupabaseJwt = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var envSupabaseServiceKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+var envSupabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+
+if (!string.IsNullOrWhiteSpace(envSupabaseUrl))
+    builder.Configuration["Supabase:ProjectUrl"] = envSupabaseUrl;
+if (!string.IsNullOrWhiteSpace(envSupabaseJwt))
+    builder.Configuration["Supabase:JwtSecret"] = envSupabaseJwt;
+if (!string.IsNullOrWhiteSpace(envSupabaseServiceKey))
+    builder.Configuration["Supabase:ServiceRoleKey"] = envSupabaseServiceKey;
+if (!string.IsNullOrWhiteSpace(envSupabaseAnonKey))
+    builder.Configuration["Supabase:AnonKey"] = envSupabaseAnonKey;
+
+// Override DB connection string from environment variables only if present
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+var dbUser = Environment.GetEnvironmentVariable("DB_USERNAME");
+var dbPass = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var dbSslMode = Environment.GetEnvironmentVariable("DB_SSLMODE");
+
+if (!string.IsNullOrWhiteSpace(dbHost) &&
+    !string.IsNullOrWhiteSpace(dbPort) &&
+    !string.IsNullOrWhiteSpace(dbName) &&
+    !string.IsNullOrWhiteSpace(dbUser) &&
+    !string.IsNullOrWhiteSpace(dbPass))
+{
+    // Default SSL mode: Disable in Development if not explicitly set; Require otherwise
+    var isDev = string.Equals(builder.Environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase);
+    var sslMode = !string.IsNullOrWhiteSpace(dbSslMode)
+        ? dbSslMode
+        : (isDev ? "Disable" : "Require");
+
+    builder.Configuration["ConnectionStrings:DefaultConnection"] =
+        $"Host={dbHost};" +
+        $"Port={dbPort};" +
+        $"Database={dbName};" +
+        $"Username={dbUser};" +
+        $"Password={dbPass};" +
+        $"Ssl Mode={sslMode};Timeout=120;Command Timeout=30;Maximum Pool Size=100;" +
+        "Minimum Pool Size=2;Connection Idle Lifetime=300;Connection Pruning Interval=10;" +
+        "Search Path=public;Pooling=true;Enlist=false;No Reset On Close=true;";
+}
 
 builder.Configuration["CloudinarySettings:CloudName"] = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
 builder.Configuration["CloudinarySettings:ApiKey"] = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
@@ -71,6 +116,7 @@ builder.Services.Configure<TempFilesSettings>(builder.Configuration.GetSection("
 
 // Configure SupabaseSettings - this will correctly pick up from environment variables now
 builder.Services.Configure<SupabaseSettings>(builder.Configuration.GetSection("Supabase"));
+// builder.Services.Configure<PricingSettings>(builder.Configuration.GetSection("Pricing"));
 
 // Add JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -191,8 +237,13 @@ builder.Services.AddAuthentication(options =>
                     }
                 }
 
-                // NOTE: Verbose claim logging removed for performance
-                // Only log on authentication failures if needed for debugging
+                // Diagnostic: log claims to server console
+                try
+                {
+                    var claimsDebug = string.Join(", ", identity.Claims.Select(c => $"{c.Type}={c.Value}"));
+                    //Console.WriteLine($"[Auth] Token validated. Claims: {claimsDebug}");
+                }
+                catch { }
             }
             catch
             {
@@ -205,8 +256,23 @@ builder.Services.AddAuthentication(options =>
 
 
 // Configure PostgreSQL with EF Core
+var dbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(dbConnectionString))
+{
+    throw new InvalidOperationException("Missing connection string: DefaultConnection");
+}
+
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(dbConnectionString);
+dataSourceBuilder.MapEnum<AdminNotificationType>("notification_type");
+var dataSource = dataSourceBuilder.Build();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    options.UseNpgsql(dataSource, npgsqlOptions =>
+        npgsqlOptions.MapEnum<AdminNotificationType>("notification_type"));
+    // Suppress pending model changes warning to allow startup despite migration issues
+    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+});
 
 // Configure Cloudinary
 builder.Services.AddSingleton(provider => {
@@ -242,16 +308,18 @@ builder.Services.AddScoped<IMarkingService, MarkingService>();
 builder.Services.AddScoped<ITempFileService, TempFileService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ITypesetRequestService, TypesetRequestService>();
+
+// Payment services
+builder.Services.AddScoped<backend.Services.Payment.Interfaces.IPaymentService, backend.Services.Payment.PaymentService>();
+builder.Services.AddHttpClient<backend.Services.Payment.API.PaymentServerClient>();
+builder.Services.AddScoped<backend.Services.Payment.API.PaymentServerClient>();
 builder.Services.AddScoped<IDocumentMergeService, DocumentMergeService>();
+
+// S2S webhook security
+// NOTE: S2S verification is implemented via attributes (see RequireS2S / RequireJwtOrS2S)
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();
-
-// Add memory cache for performance optimization
-builder.Services.AddMemoryCache();
-
-// Add response caching
-builder.Services.AddResponseCaching();
 
 // Update QuestionService to accept new repositories and IHttpContextAccessor
 builder.Services.AddScoped<IQuestionService, QuestionService>(provider =>
@@ -306,22 +374,59 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins(
-                      "http://localhost:5173",
-                      "http://localhost:5174",
-                      "http://127.0.0.1:5173",
-                      "http://127.0.0.1:5174"
-                  )
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
+            var defaultOrigins = new[]
+            {
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:5174"
+            };
+
+            var extraOriginsRaw = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+            var extraOrigins = string.IsNullOrWhiteSpace(extraOriginsRaw)
+                ? Array.Empty<string>()
+                : extraOriginsRaw
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var allowedOrigins = defaultOrigins.Concat(extraOrigins).Distinct().ToArray();
+
+            // Use SetIsOriginAllowed to technically allow any origin but with Credentials support
+            // This is useful for development setups involving tunnels or varing ports
+            policy.SetIsOriginAllowed(origin => true) 
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         });
 });
 
 var app = builder.Build();
 
+// When running behind a reverse proxy/tunnel (e.g., DevTunnels), respect forwarded headers
+// so HTTPS redirection doesn't bounce clients to localhost HTTPS ports.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    // Try applying EF Core migrations automatically in Development
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+        Console.WriteLine("[DB] Migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[DB] Migration failed: {ex.Message}");
+    }
+
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -332,45 +437,24 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseRouting();
+// Log incoming requests
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/payments"))
+    {
+        Console.WriteLine($"[Middleware] Incoming {context.Request.Method} request to {context.Request.Path}");
+        Console.WriteLine($"[Middleware] Origin: {context.Request.Headers["Origin"]}");
+    }
+    await next();
+});
 
+// CORS MUST come before routing and authentication
 app.UseCors("AllowFrontend");
 
-// ============================================
-// RESPONSE CACHING MIDDLEWARE
-// ============================================
-// Cache GET responses to reduce database load
-app.UseResponseCaching();
+app.UseRouting();
 
-// ============================================
-// CUSTOM AUTHENTICATION & AUTHORIZATION MIDDLEWARE
-// ============================================
-// These middleware handle server-side authentication and authorization
-// All requests pass through these before reaching controllers
-
-// 1. JWT Authentication Middleware
-//    - Validates JWT tokens from Supabase
-//    - Extracts user claims (ID, email, role)
-//    - Sets HttpContext.User for downstream use
-app.UseMiddleware<JwtAuthenticationMiddleware>();
-
-// 2. Standard ASP.NET Core Authentication
-//    - Works in conjunction with our custom middleware
-//    - Handles [Authorize] attributes on controllers
 app.UseAuthentication();
-
-// 3. Role-Based Authorization Middleware
-//    - Logs authorization attempts for audit
-//    - Can implement custom authorization logic
-//    - Runs before controller actions
-app.UseRoleAuthorization();
-
-// 4. Standard ASP.NET Core Authorization
-//    - Handles [Authorize(Roles = "...")] attributes
-//    - Works with our custom authorization attributes
 app.UseAuthorization();
-
-// ============================================
 
 app.MapControllers();
 
