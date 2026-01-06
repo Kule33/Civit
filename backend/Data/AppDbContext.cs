@@ -18,10 +18,14 @@ namespace backend.Data
         public DbSet<Marking> Markings { get; set; }
         public DbSet<PaperDownload> PaperDownloads { get; set; }
         public DbSet<TypesetRequest> TypesetRequests { get; set; }
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<AdminNotification> AdminNotifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.HasPostgresEnum<AdminNotificationType>(schema: null, name: "notification_type");
 
             // Configure Question entity
             modelBuilder.Entity<Question>(entity =>
@@ -66,7 +70,7 @@ namespace backend.Data
                 
                 // Configure Question relationship with cascade delete
                 entity.HasOne(t => t.Question)
-                    .WithMany(q => q.Typesets)
+                    .WithMany()
                     .HasForeignKey(t => t.QuestionId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
@@ -167,6 +171,57 @@ namespace backend.Data
                 
                 entity.Property(tr => tr.UpdatedAt)
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
+
+            // Configure Order entity
+            modelBuilder.Entity<Order>(entity =>
+            {
+                // Composite key prevents duplicates per paper for a given order
+                entity.HasKey(o => new { o.OrderId, o.PaperId });
+
+                entity.HasIndex(o => o.UserId);
+                entity.HasIndex(o => o.CreatedAt);
+
+                entity.Property(o => o.CreatedAt)
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
+
+            // Configure AdminNotification entity (admin dashboard alerts)
+            modelBuilder.Entity<AdminNotification>(entity =>
+            {
+                entity.ToTable("admin_notifications");
+
+                entity.HasKey(n => n.Id);
+                entity.Property(n => n.Id)
+                    .HasColumnName("id")
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(n => n.Type)
+                    .HasColumnName("type")
+                    .HasColumnType("notification_type")
+                    .IsRequired();
+
+                entity.Property(n => n.UserId)
+                    .HasColumnName("user_id")
+                    .HasColumnType("uuid");
+
+                entity.Property(n => n.Read)
+                    .HasColumnName("read")
+                    .HasDefaultValue(false);
+
+                entity.Property(n => n.Metadata)
+                    .HasColumnName("metadata")
+                    .HasColumnType("jsonb");
+
+                entity.Property(n => n.Link)
+                    .HasColumnName("link")
+                    .HasColumnType("varchar");
+
+                entity.Property(n => n.CreatedAt)
+                    .HasColumnName("created_at")
+                    .HasColumnType("timestamp with time zone")
+                    .HasDefaultValueSql("now()")
+                    .ValueGeneratedOnAdd();
             });
         }
     }
