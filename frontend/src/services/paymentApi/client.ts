@@ -11,9 +11,13 @@ export const paymentApiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
+const getAuthToken = () => {
+  const authData = JSON.parse(localStorage.getItem('sb-cvkqftzrfwmjotjhqzwa-auth-token') || '{}');
+  return authData?.access_token;
+};
 
 paymentApiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token");
+  const token = getAuthToken();
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
