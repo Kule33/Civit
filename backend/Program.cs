@@ -1,4 +1,7 @@
 using backend.Config; // This line is crucial for SupabaseSettings
+using Backend.Config; // For RabbitMqSettings
+using Backend.Services.Communication.Features.NotifyPaymentStatus; // For PaymentStatusHandler/Consumer
+using Backend.Services.Communication.Core.Producers;
 using backend.Data;
 using backend.Repositories;
 using backend.Repositories.Interfaces;
@@ -337,6 +340,13 @@ builder.Services.AddScoped<ITypesetRequestService, TypesetRequestService>();
 
 // Payment services
 builder.Services.AddScoped<backend.Services.Payment.Interfaces.IPaymentService, backend.Services.Payment.PaymentService>();
+
+// RabbitMQ & Communication VSA
+builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMQ"));
+builder.Services.AddScoped<PaymentStatusHandler>();
+builder.Services.AddScoped<RabbitMqProducer>(); // Register Producer
+builder.Services.AddHostedService<RabbitStatusConsumer>();
+
 builder.Services.AddHttpClient<backend.Services.Payment.API.PaymentServerClient>();
 builder.Services.AddScoped<backend.Services.Payment.API.PaymentServerClient>();
 builder.Services.AddScoped<IDocumentMergeService, DocumentMergeService>();

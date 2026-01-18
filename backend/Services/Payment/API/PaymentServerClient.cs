@@ -75,21 +75,21 @@ namespace backend.Services.Payment.API
             var signatureString = method.Method.ToUpperInvariant() + requestUri + timestamp + nonce + jsonBody;
             var signatureHex = ComputeHmacSha256HexLower(signatureString, _hmacSecret);
 
-            Console.WriteLine("\n╔════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║         [PaymentServerClient] S2S REQUEST SECURITY DETAILS       ║");
-            Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
-            Console.WriteLine($"[REQUEST] {method.Method.ToUpperInvariant()} {_paymentServerUrl}{requestUri}");
-            Console.WriteLine("\n[PAYLOAD SIGNING]");
-            Console.WriteLine($"  Canonical String:\n    {signatureString}");
-            Console.WriteLine($"\n[SECURITY HEADERS]");
-            Console.WriteLine($"  x-api-key:      {_apiKey}");
-            Console.WriteLine($"  x-timestamp:    {timestamp}");
-            Console.WriteLine($"  x-nonce:        {nonce}");
-            Console.WriteLine($"  x-signature:    {signatureHex}");
-            Console.WriteLine($"  Idempotency-Key: {resolvedIdempotencyKey}");
-            Console.WriteLine($"\n[SECRET INFO]");
-            Console.WriteLine($"  HMAC Secret: {(_hmacSecret?.Length > 0 ? _hmacSecret.Substring(0, Math.Min(15, _hmacSecret.Length)) + "..." : "NOT SET")}");
-            Console.WriteLine("╔════════════════════════════════════════════════════════════════╗\n");;
+            // Console.WriteLine("\n╔════════════════════════════════════════════════════════════════╗");
+            // Console.WriteLine("║         [PaymentServerClient] S2S REQUEST SECURITY DETAILS       ║");
+            // Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+            // Console.WriteLine($"[REQUEST] {method.Method.ToUpperInvariant()} {_paymentServerUrl}{requestUri}");
+            // Console.WriteLine("\n[PAYLOAD SIGNING]");
+            // Console.WriteLine($"  Canonical String:\n    {signatureString}");
+            // Console.WriteLine($"\n[SECURITY HEADERS]");
+            // Console.WriteLine($"  x-api-key:      {_apiKey}");
+            // Console.WriteLine($"  x-timestamp:    {timestamp}");
+            // Console.WriteLine($"  x-nonce:        {nonce}");
+            // Console.WriteLine($"  x-signature:    {signatureHex}");
+            // Console.WriteLine($"  Idempotency-Key: {resolvedIdempotencyKey}");
+            // Console.WriteLine($"\n[SECRET INFO]");
+            // Console.WriteLine($"  HMAC Secret: {(_hmacSecret?.Length > 0 ? _hmacSecret.Substring(0, Math.Min(15, _hmacSecret.Length)) + "..." : "NOT SET")}");
+            // Console.WriteLine("╔════════════════════════════════════════════════════════════════╗\n");;
 
             var request = new HttpRequestMessage(method, requestUri)
             {
@@ -102,12 +102,12 @@ namespace backend.Services.Payment.API
             request.Headers.Add("x-signature", signatureHex);
             request.Headers.Add("Idempotency-Key", resolvedIdempotencyKey);
 
-            Console.WriteLine("[PaymentServerClient] ✅ S2S Headers Ready to Send:");
-            Console.WriteLine($"  ├─ x-api-key:       {_apiKey}");
-            Console.WriteLine($"  ├─ x-timestamp:     {timestamp}");
-            Console.WriteLine($"  ├─ x-nonce:         {nonce}");
-            Console.WriteLine($"  ├─ x-signature:     {signatureHex}");
-            Console.WriteLine($"  └─ Idempotency-Key: {resolvedIdempotencyKey}\n");
+            // Console.WriteLine("[PaymentServerClient] ✅ S2S Headers Ready to Send:");
+            // Console.WriteLine($"  ├─ x-api-key:       {_apiKey}");
+            // Console.WriteLine($"  ├─ x-timestamp:     {timestamp}");
+            // Console.WriteLine($"  ├─ x-nonce:         {nonce}");
+            // Console.WriteLine($"  ├─ x-signature:     {signatureHex}");
+            // Console.WriteLine($"  └─ Idempotency-Key: {resolvedIdempotencyKey}\n");
 
             return await _httpClient.SendAsync(request);
         }

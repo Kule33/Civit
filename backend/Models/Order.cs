@@ -13,6 +13,8 @@ namespace backend.Models
         [Required]
         public string UserId { get; set; } = string.Empty;
 
+        public string PaymentStatus { get; set; } = "pending";
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }) => {
         
         if (session) {
           console.log('User found:', session.user.email, 'Role:', session.user.user_metadata?.role);
+          console.log("Token:", session.access_token);
           if (isMounted) {
             setUser(session.user);
             const userRole = session.user.user_metadata?.role;
@@ -109,6 +110,7 @@ export const AuthProvider = ({ children }) => {
         
         if (session) {
           console.log('Setting user from auth state change:', session.user.email);
+          console.log("Token:", session.access_token);
           setUser(session.user);
           const userRole = session.user.user_metadata?.role;
           setIsAdmin(userRole === 'admin');
