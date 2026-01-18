@@ -1,5 +1,5 @@
 // frontend/src/context/AuthProvider.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient'; // Import your Supabase client
 import { getMyProfile } from '../services/userService';
 
@@ -12,6 +12,12 @@ export const AuthProvider = ({ children }) => {
   const [isTeacher, setIsTeacher] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+
+  const userProfileRef = useRef(null);
+
+  useEffect(() => {
+    userProfileRef.current = userProfile;
+  }, [userProfile]);
 
   console.log('AuthProvider initialized');
 
@@ -59,10 +65,10 @@ export const AuthProvider = ({ children }) => {
             setIsTeacher(userRole === 'teacher');
           }
           
-          // Fetch user profile
+          // Fetch user profile - PASS THE ACCESS TOKEN to avoid calling getSession() again
           try {
-            console.log('Fetching user profile...');
-            const profile = await getMyProfile();
+            console.log('Fetching user profile with provided token...');
+            const profile = await getMyProfile(session.access_token);
             console.log('Profile loaded:', profile);
             if (isMounted) {
               setUserProfile(profile);
@@ -113,24 +119,34 @@ export const AuthProvider = ({ children }) => {
           const userRole = session.user.user_metadata?.role;
           setIsAdmin(userRole === 'admin');
           setIsTeacher(userRole === 'teacher');
-          
-          // Fetch user profile - PASS THE ACCESS TOKEN to avoid getSession() deadlock
-          setProfileLoading(true);
-          try {
-            console.log('Fetching profile from auth state change with token from session...');
-            const profile = await getMyProfile(session.access_token);
-            console.log('Profile fetched from auth state change:', profile);
-            if (isMounted) {
-              setUserProfile(profile);
-            }
-          } catch (error) {
-            console.log("Profile not found or error loading:", error.message);
-            if (isMounted) {
-              setUserProfile(null);
-            }
-          } finally {
-            if (isMounted) {
-              setProfileLoading(false);
+
+          // Avoid full-app loading flashes on token refresh.
+          // Profile rarely changes on TOKEN_REFRESHED; keep existing profile and skip refetch.
+          const shouldFetchProfile =
+            event === 'SIGNED_IN' ||
+            event === 'USER_UPDATED' ||
+            event === 'INITIAL_SESSION' ||
+            (!userProfileRef.current && event !== 'SIGNED_OUT');
+
+          if (shouldFetchProfile) {
+            // Fetch user profile - PASS THE ACCESS TOKEN to avoid getSession() deadlock
+            setProfileLoading(true);
+            try {
+              console.log('Fetching profile from auth state change with token from session...');
+              const profile = await getMyProfile(session.access_token);
+              console.log('Profile fetched from auth state change:', profile);
+              if (isMounted) {
+                setUserProfile(profile);
+              }
+            } catch (error) {
+              console.log("Profile not found or error loading:", error.message);
+              if (isMounted) {
+                setUserProfile(null);
+              }
+            } finally {
+              if (isMounted) {
+                setProfileLoading(false);
+              }
             }
           }
         } else {

@@ -10,8 +10,13 @@ using System.Threading.Tasks;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// Typeset Controller - Manages LaTeX typesets for questions
+    /// All endpoints require authentication. Upload is admin-only.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize] // All endpoints require authentication
     public class TypesetsController : ControllerBase
     {
         private readonly ITypesetService _typesetService;
@@ -33,9 +38,10 @@ namespace backend.Controllers
 
         /// <summary>
         /// Create or replace a typeset for a question (Admin only)
+        /// Server validates user role before processing
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin")] // Only admin can upload typesets
         public async Task<IActionResult> Upsert([FromBody] TypesetUploadDto dto)
         {
             try

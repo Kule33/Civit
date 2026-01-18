@@ -20,22 +20,52 @@ import { savePdfToTemp } from '../../services/typesetRequestService.js';
 
 const PaperBuilder = () => {
   // Core state management for questions and UI
-  const [questions, setQuestions] = useState([]);
-  const [selectedQuestions, setSelectedQuestions] = useState([]);
-  const [selectedQuestionsOrdered, setSelectedQuestionsOrdered] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searchPerformed, setSearchPerformed] = useState(false);
   const [isFiltersMinimized, setIsFiltersMinimized] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isViewingSelectedQuestions, setIsViewingSelectedQuestions] = useState(false);
-  const [questionComments, setQuestionComments] = useState({});
+  const [draggedQuestionIndex, setDraggedQuestionIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  
+  // Floating button state for mobile
+  const [floatingButtonPosition, setFloatingButtonPosition] = useState({ x: window.innerWidth - 80, y: window.innerHeight - 150 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragStartPosition, setDragStartPosition] = useState({ x: 0, y: 0 });
   
   // Typeset request state
   const [showTypesetModal, setShowTypesetModal] = useState(false);
   const [lastGeneratedPaper, setLastGeneratedPaper] = useState(null);
 
-  const { showOverlay } = useSubmission();
+  const {
+    showOverlay,
+    paperBuilder,
+    setPaperBuilderQuestions,
+    setPaperBuilderSearchPerformed,
+    setPaperBuilderMetadata,
+    setSelectedQuestionIds,
+    setSelectedQuestionsOrdered,
+    setPaperBuilderQuestionComments,
+    clearPaperBuilderState
+  } = useSubmission();
+
+  const questions = useMemo(
+    () => paperBuilder?.questions ?? [],
+    [paperBuilder?.questions]
+  );
+
+  const selectedQuestions = useMemo(
+    () => paperBuilder?.selectedQuestionIds ?? [],
+    [paperBuilder?.selectedQuestionIds]
+  );
+
+  const selectedQuestionsOrdered = useMemo(
+    () => paperBuilder?.selectedQuestionsOrdered ?? [],
+    [paperBuilder?.selectedQuestionsOrdered]
+  );
+  const searchPerformed = !!paperBuilder?.searchPerformed;
+  const questionComments = paperBuilder?.questionComments || {};
   
   // Advanced PDF generation hook
   const { generatePDF } = useAdvancedPaperGeneration();
@@ -46,30 +76,34 @@ const PaperBuilder = () => {
   // Sync selectedQuestionsOrdered when questions change (e.g., after new search)
   useEffect(() => {
     // Filter out any selected questions that are no longer in the current questions list
-    setSelectedQuestionsOrdered(prevOrdered => 
-      prevOrdered.filter(selectedQ => 
+    setSelectedQuestionsOrdered(prevOrdered =>
+      prevOrdered.filter(selectedQ =>
         questions.some(currentQ => currentQ.id === selectedQ.id)
       )
     );
-    
+
     // Also update selectedQuestions to remove any IDs that no longer exist
-    setSelectedQuestions(prevSelected => 
-      prevSelected.filter(id => 
+    setSelectedQuestionIds(prevSelected =>
+      prevSelected.filter(id =>
         questions.some(q => q.id === id)
       )
     );
-  }, [questions]);
+  }, [questions, setSelectedQuestionIds, setSelectedQuestionsOrdered]);
 
-  // Use the same metadata hook as QuestionUpload - with Sri Lanka as default
   const {
     metadata,
     availableOptions,
     updateMetadata,
     loading: metadataLoading,
     resetMetadata
-  } = useMetadata({
+  } = useMetadata(paperBuilder?.metadata || {
     country: 'sri_lanka'  // Default to Sri Lanka
   });
+
+  // Persist current filters in-memory so they restore when returning to the page
+  useEffect(() => {
+    setPaperBuilderMetadata(metadata);
+  }, [metadata, setPaperBuilderMetadata]);
 
   // Set country to Sri Lanka by default on component mount
   useEffect(() => {
@@ -110,12 +144,13 @@ const PaperBuilder = () => {
       // Use searchQuestions instead of direct axios
       const data = await searchQuestions(params);
       console.log('✅ Search results received:', data?.length || 0, 'questions');
-      setQuestions(Array.isArray(data) ? data : []);
-      setSearchPerformed(true);
+      setPaperBuilderQuestions(Array.isArray(data) ? data : []);
+      setPaperBuilderSearchPerformed(true);
     } catch (error) {
       const errorMessage = error.response?.data?.title || error.message || 'Failed to fetch questions. Please try again.';
       setError(errorMessage);
-      setQuestions([]);
+      setPaperBuilderQuestions([]);
+      setPaperBuilderSearchPerformed(true);
     } finally {
       setLoading(false);
     }
@@ -127,7 +162,7 @@ const PaperBuilder = () => {
    * @param {string|number} questionId - ID of the question to select/deselect
    */
   const handleQuestionSelect = useCallback((questionId) => {
-    setSelectedQuestions(prev => {
+    setSelectedQuestionIds(prev => {
       if (prev.includes(questionId)) {
         // Remove from selected questions
         const newSelected = prev.filter(id => id !== questionId);
@@ -153,7 +188,8 @@ const PaperBuilder = () => {
         return prevOrdered;
       }
     });
-  }, [questions]);
+  }, [questions, setSelectedQuestionIds, setSelectedQuestionsOrdered]);
+
 
   /**
    * Handles selecting/deselecting all questions
@@ -162,11 +198,11 @@ const PaperBuilder = () => {
   const handleSelectAll = () => {
     if (selectedQuestions.length === questions.length) {
       // Deselect all
-      setSelectedQuestions([]);
+      setSelectedQuestionIds([]);
       setSelectedQuestionsOrdered([]);
     } else {
       // Select all
-      setSelectedQuestions(questions.map(q => q.id));
+      setSelectedQuestionIds(questions.map(q => q.id));
       setSelectedQuestionsOrdered([...questions]);
     }
   };
@@ -176,12 +212,65 @@ const PaperBuilder = () => {
    */
   const handleClearFilters = () => {
     resetMetadata();
-    setQuestions([]);
-    setSelectedQuestions([]);
-    setSelectedQuestionsOrdered([]);
-    setSearchPerformed(false);
+    clearPaperBuilderState();
     setError('');
   };
+
+  /**
+   * Handles floating button drag start
+   */
+  const handleDragStart = useCallback((e) => {
+    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    
+    setIsDragging(true);
+    setDragStartPosition({ x: clientX, y: clientY });
+    setDragOffset({
+      x: clientX - floatingButtonPosition.x,
+      y: clientY - floatingButtonPosition.y
+    });
+  }, [floatingButtonPosition]);
+
+  /**
+   * Handles floating button drag
+   */
+  const handleDrag = useCallback((e) => {
+    if (!isDragging) return;
+    
+    e.preventDefault();
+    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+    
+    const buttonSize = 64; // Size of the button (w-16 h-16)
+    const newX = Math.max(0, Math.min(clientX - dragOffset.x, window.innerWidth - buttonSize));
+    const newY = Math.max(0, Math.min(clientY - dragOffset.y, window.innerHeight - buttonSize));
+    
+    setFloatingButtonPosition({ x: newX, y: newY });
+  }, [isDragging, dragOffset]);
+
+  /**
+   * Handles floating button drag end
+   */
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add drag event listeners for floating button
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleDrag);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleDrag);
+      window.addEventListener('touchend', handleDragEnd);
+
+      return () => {
+        window.removeEventListener('mousemove', handleDrag);
+        window.removeEventListener('mouseup', handleDragEnd);
+        window.removeEventListener('touchmove', handleDrag);
+        window.removeEventListener('touchend', handleDragEnd);
+      };
+    }
+  }, [isDragging, handleDrag, handleDragEnd]);
 
   /**
    * Handles PDF generation and download
@@ -216,6 +305,10 @@ const PaperBuilder = () => {
             autoClose: true,
             autoCloseDelay: 3000
           });
+
+          // Reset builder state after a successful download
+          clearPaperBuilderState();
+          setIsViewingSelectedQuestions(false);
 
           // Log paper generation for analytics (non-blocking)
           try {
@@ -370,7 +463,7 @@ const PaperBuilder = () => {
    * @param {string} comment - Comment text
    */
   const handleCommentChange = (questionId, comment) => {
-    setQuestionComments(prev => ({
+    setPaperBuilderQuestionComments(prev => ({
       ...prev,
       [questionId]: comment
     }));
@@ -421,16 +514,6 @@ const PaperBuilder = () => {
         subtitle="Search for questions and build custom papers"
         actions={
           <div className="flex space-x-2">
-            {/* Mobile sidebar toggle */}
-            <Button
-              variant="secondary"
-              icon={Menu}
-              onClick={handleToggleSidebar}
-              className="lg:hidden"
-            >
-              {isSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}
-            </Button>
-            
             <Button
               variant="secondary"
               icon={Filter}
@@ -451,61 +534,63 @@ const PaperBuilder = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-3">
-          {/* Exam Type */}
-          {metadata.country && (
+        {/* Filters in compact grid layout */}
+        <div className="space-y-4">
+          {/* Row 1: Primary Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {/* Exam Type */}
             <SelectField
-              label="Exam Type"
+              label="Exam Type *"
               value={metadata.examType}
               onChange={(e) => handleFilterChange('examType', e.target.value)}
               options={[
-                { value: '', label: 'All Exam Types' },
+                { value: '', label: 'Select Exam Type' },
                 ...(availableOptions.examTypes || [])
               ]}
+              required
             />
-          )}
 
-          {/* Stream Selection (only for A/L) */}
-          {metadata.examType === 'a_level' && (
+            {/* Stream Selection (visible for all, enabled only for A/L) */}
             <SelectField
               label="Stream"
               value={metadata.stream}
               onChange={(e) => handleFilterChange('stream', e.target.value)}
               options={[
-                { value: '', label: 'All Streams' },
+                { value: '', label: metadata.examType === 'a_level' ? 'Select Stream' : 'N/A for this exam' },
                 ...(availableOptions.streams || [])
               ]}
+              disabled={metadata.examType !== 'a_level'}
             />
-          )}
 
-          {/* Subject Selection (show for A/L and O/L, but NOT for Grade 5) */}
-          {(metadata.examType && metadata.examType !== 'grade5' && (metadata.stream || metadata.examType === 'o_level')) && (
+            {/* Subject Selection */}
             <SelectField
               label="Subject"
               value={metadata.subject}
               onChange={(e) => handleFilterChange('subject', e.target.value)}
               options={[
-                { value: '', label: 'All Subjects' },
+                { value: '', label: metadata.examType === 'grade5' ? 'N/A for Grade 5' : 'All Subjects' },
                 ...(availableOptions.subjects || [])
               ]}
+              disabled={!metadata.examType || metadata.examType === 'grade5' || (metadata.examType === 'a_level' && !metadata.stream)}
             />
-          )}
 
-          {/* Paper Category */}
-          <SelectField
-            label="Paper Category"
-            value={metadata.paperCategory}
-            onChange={(e) => handleFilterChange('paperCategory', e.target.value)}
-            options={[
-              { value: '', label: 'All Categories' },
-              { value: 'Model', label: 'Model Paper' },
-              { value: 'PastPaper', label: 'Past Paper' },
-              { value: 'TermTest', label: 'Term Test' }
-            ]}
-          />
+            {/* Paper Category */}
+            <SelectField
+              label="Paper Category *"
+              value={metadata.paperCategory}
+              onChange={(e) => handleFilterChange('paperCategory', e.target.value)}
+              options={[
+                { value: '', label: 'All Categories' },
+                { value: 'Model', label: 'Model Paper' },
+                { value: 'PastPaper', label: 'Past Paper' },
+                { value: 'TermTest', label: 'Term Test' }
+              ]}
+            />
+          </div>
 
-          {/* Paper Type for Science Subjects (Physics, Chemistry, Biology) */}
-          {['physics', 'chemistry', 'biology'].includes(metadata.subject) && (
+          {/* Row 2: Secondary Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {/* Paper Type */}
             <SelectField
               label="Paper Type"
               value={metadata.paperType}
@@ -514,24 +599,10 @@ const PaperBuilder = () => {
                 { value: '', label: 'All Paper Types' },
                 ...(availableOptions.paperTypes || [])
               ]}
+              disabled={!(['physics', 'chemistry', 'biology'].includes(metadata.subject) || metadata.examType === 'grade5')}
             />
-          )}
 
-          {/* Paper Type for Grade 5 Scholarship */}
-          {metadata.examType === 'grade5' && (
-            <SelectField
-              label="Paper Type"
-              value={metadata.paperType}
-              onChange={(e) => handleFilterChange('paperType', e.target.value)}
-              options={[
-                { value: '', label: 'All Paper Types' },
-                ...(availableOptions.paperTypes || [])
-              ]}
-            />
-          )}
-
-          {/* Year (only for Past Papers) */}
-          {metadata.paperCategory === 'PastPaper' && (
+            {/* Year */}
             <InputField
               label="Year"
               type="number"
@@ -539,48 +610,54 @@ const PaperBuilder = () => {
               max="2030"
               value={metadata.year || ''}
               onChange={(e) => handleFilterChange('year', e.target.value ? parseInt(e.target.value) : null)}
-              placeholder="All Years"
+              placeholder={metadata.paperCategory === 'PastPaper' ? 'Enter Year' : 'Only for Past Papers'}
+              disabled={metadata.paperCategory !== 'PastPaper'}
             />
-          )}
 
-          {/* Term and School (only for Term Tests) */}
-          {metadata.paperCategory === 'TermTest' && (
-            <>
-              <SelectField
-                label="Term"
-                value={metadata.term}
-                onChange={(e) => handleFilterChange('term', e.target.value)}
-                options={[
-                  { value: '', label: 'All Terms' },
-                  { value: 'Term1', label: 'Term 1' },
-                  { value: 'Term2', label: 'Term 2' },
-                  { value: 'Term3', label: 'Term 3' }
-                ]}
-              />
+            {/* Term */}
+            <SelectField
+              label="Term"
+              value={metadata.term}
+              onChange={(e) => handleFilterChange('term', e.target.value)}
+              options={[
+                { value: '', label: metadata.paperCategory === 'TermTest' ? 'All Terms' : 'Only for Term Tests' },
+                { value: 'Term1', label: 'Term 1' },
+                { value: 'Term2', label: 'Term 2' },
+                { value: 'Term3', label: 'Term 3' }
+              ]}
+              disabled={metadata.paperCategory !== 'TermTest'}
+            />
 
-              <SearchableSelect
-                value={metadata.schoolName}
-                onChange={(e) => handleFilterChange('schoolName', e.target.value)}
-                options={[
-                  { value: '', label: 'All Schools' },
-                  ...(availableOptions.schools?.map(school => ({ value: school.name, label: school.name })) || [])
-                ]}
-                placeholder="All Schools"
-              />
-            </>
-          )}
+            {/* School */}
+            <SearchableSelect
+              label="School"
+              value={metadata.schoolName}
+              onChange={(e) => handleFilterChange('schoolName', e.target.value)}
+              options={[
+                { value: '', label: metadata.paperCategory === 'TermTest' ? 'All Schools' : 'Only for Term Tests' },
+                ...(availableOptions.schools?.map(school => ({ value: school.name, label: school.name })) || [])
+              ]}
+              placeholder={metadata.paperCategory === 'TermTest' ? 'Search schools...' : 'N/A'}
+              disabled={metadata.paperCategory !== 'TermTest'}
+            />
+          </div>
 
-          <div className="ml-auto flex gap-2">
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              disabled={loading}
+            >
+              Clear Filters
+            </Button>
             <Button
               variant="primary"
               onClick={handleSearch}
-              disabled={loading || metadataLoading}
+              disabled={loading || metadataLoading || !metadata.examType}
               icon={Search}
             >
-              {loading ? 'Searching...' : 'Search'}
-            </Button>
-            <Button variant="outline" onClick={handleClearFilters} disabled={loading}>
-              Clear
+              {loading ? 'Searching...' : 'Search Questions'}
             </Button>
           </div>
         </div>
@@ -594,17 +671,18 @@ const PaperBuilder = () => {
             {isViewingSelectedQuestions ? (
               /* Selected Questions View */
               <>
-                <div className="flex justify-between items-center mb-6 p-6 pb-0">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 p-4 sm:p-6 pb-0">
                   <h2 className="text-lg font-semibold">Selected Questions ({selectedQuestionsOrdered.length})</h2>
                   <Button
                     variant="outline"
                     onClick={handleBackToSearch}
                     icon={Search}
+                    className="w-full sm:w-auto"
                   >
                     Back to Search
                   </Button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-6 pt-0">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-0">
                   {selectedQuestionsOrdered.length === 0 ? (
                     <div className="text-center py-12">
                       <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -618,23 +696,44 @@ const PaperBuilder = () => {
                       {selectedQuestionsOrdered.map((question, index) => (
                         <div 
                           key={question.id} 
-                          className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+                          className={`border rounded-lg p-3 sm:p-4 bg-white transition-all ${
+                            draggedQuestionIndex === index 
+                              ? 'opacity-50 border-blue-400' 
+                              : dragOverIndex === index 
+                              ? 'border-blue-500 border-2 shadow-lg' 
+                              : 'border-gray-200 hover:shadow-md'
+                          }`}
                           draggable
                           onDragStart={(e) => {
+                            setDraggedQuestionIndex(index);
+                            e.dataTransfer.effectAllowed = 'move';
                             e.dataTransfer.setData('text/plain', index.toString());
+                          }}
+                          onDragEnd={() => {
+                            setDraggedQuestionIndex(null);
+                            setDragOverIndex(null);
                           }}
                           onDragOver={(e) => {
                             e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (dragOverIndex !== index) {
+                              setDragOverIndex(index);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            setDragOverIndex(null);
                           }}
                           onDrop={(e) => {
                             e.preventDefault();
                             const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
                             handleDragReorder(draggedIndex, index);
+                            setDraggedQuestionIndex(null);
+                            setDragOverIndex(null);
                           }}
                         >
-                          <div className="flex items-start gap-4">
+                          <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                             {/* Drag handle and question number */}
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex sm:flex-col items-center gap-2 w-full sm:w-auto">
                               <div className="bg-gray-100 p-1 rounded cursor-move">
                                 <GripVertical className="h-4 w-4 text-gray-500" />
                               </div>
@@ -644,16 +743,16 @@ const PaperBuilder = () => {
                             </div>
                             
                             {/* Question image */}
-                            <div className="flex-shrink-0">
+                            <div className="flex-shrink-0 w-full sm:w-auto">
                               <img
                                 src={question.fileUrl || "/placeholder.svg"}
                                 alt={question.subject?.name || 'Question'}
-                                className="w-20 h-20 object-cover rounded-md"
+                                className="w-full sm:w-20 h-32 sm:h-20 object-cover rounded-md"
                               />
                             </div>
                             
                             {/* Question content */}
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 w-full">
                               <h3 className="font-medium text-sm text-gray-900 mb-2">
                                 {question.subject?.name || 'Unknown Subject'}
                               </h3>
@@ -702,22 +801,22 @@ const PaperBuilder = () => {
                             </div>
 
                             {/* Reorder buttons */}
-                            <div className="flex flex-col gap-1">
+                            <div className="flex sm:flex-col flex-row gap-2 sm:gap-1 w-full sm:w-auto justify-end sm:justify-start">
                               <button
                                 onClick={() => handleMoveQuestionUp(index)}
                                 disabled={index === 0}
-                                className="p-1 h-6 w-6 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                className="p-1 sm:h-6 sm:w-6 h-8 w-8 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                                 title="Move up"
                               >
-                                <ChevronUp className="h-3 w-3" />
+                                <ChevronUp className="h-4 w-4 sm:h-3 sm:w-3" />
                               </button>
                               <button
                                 onClick={() => handleMoveQuestionDown(index)}
                                 disabled={index === selectedQuestionsOrdered.length - 1}
-                                className="p-1 h-6 w-6 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                className="p-1 sm:h-6 sm:w-6 h-8 w-8 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                                 title="Move down"
                               >
-                                <ChevronDown className="h-3 w-3" />
+                                <ChevronDown className="h-4 w-4 sm:h-3 sm:w-3" />
                               </button>
                             </div>
                           </div>
@@ -726,15 +825,29 @@ const PaperBuilder = () => {
                     </div>
                   )}
                 </div>
+                
+                {/* Download button for mobile at the bottom */}
+                {selectedQuestionsOrdered.length > 0 && (
+                  <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 lg:hidden">
+                    <Button
+                      variant="primary"
+                      onClick={() => handleDownloadPaper(selectedQuestionsOrdered)}
+                      icon={Download}
+                      className="w-full"
+                    >
+                      Download Paper ({selectedQuestionsOrdered.length} questions)
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
               /* Search Results View */
               <>
-                <div className="flex justify-between items-center mb-6 p-6 pb-0">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 p-4 sm:p-6 pb-0">
                   <h2 className="text-lg font-semibold">Search Results</h2>
 
                   {searchPerformed && questions.length > 0 && (
-                    <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
                       <span className="text-sm text-gray-600">
                         {getFilteredQuestionsCount()} questions found • {getSelectedQuestionsCount()} selected
                       </span>
@@ -742,6 +855,7 @@ const PaperBuilder = () => {
                         variant="primary"
                         onClick={handleSelectAll}
                         size="small"
+                        className="w-full sm:w-auto"
                       >
                         {selectedQuestions.length === questions.length ? 'Deselect All' : 'Select All'}
                       </Button>
@@ -751,13 +865,13 @@ const PaperBuilder = () => {
 
                 {/* Error display */}
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 mx-6">
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3 sm:p-4 mb-3 sm:mb-4 mx-4 sm:mx-6">
                     <p className="text-red-700 text-sm">{error}</p>
                   </div>
                 )}
 
                 {/* Scrollable content area */}
-                <div className="flex-1 overflow-y-auto p-6 pt-0">
+                <div className="flex-1 overflow-y-auto px-3 py-4 sm:p-6 sm:pt-0">
                   {loading ? (
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -800,26 +914,41 @@ const PaperBuilder = () => {
             onCommentChange={handleCommentChange}
           />
         </div>
-
-        {/* Mobile sidebar overlay */}
-        {!isSidebarCollapsed && (
-          <div className="lg:hidden fixed inset-0 z-50 flex">
-            <div className="flex-1 bg-black bg-opacity-50" onClick={handleToggleSidebar}></div>
-            <div className="w-96 bg-white">
-              <SelectedQuestionsSidebar
-                selectedQuestionsOrdered={selectedQuestionsOrdered}
-                setSelectedQuestionsOrdered={setSelectedQuestionsOrdered}
-                onDownloadPaper={handleDownloadPaper}
-                isCollapsed={false}
-                onToggleCollapse={handleToggleSidebar}
-                onViewSelectedQuestions={handleViewSelectedQuestions}
-                questionComments={questionComments}
-                onCommentChange={handleCommentChange}
-              />
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Floating Download Button - iPhone Assistive Touch Style */}
+      {selectedQuestions.length > 0 && (
+        <button
+          className="fixed z-50 w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center cursor-move transition-all duration-200 active:scale-95"
+          style={{
+            left: `${floatingButtonPosition.x}px`,
+            top: `${floatingButtonPosition.y}px`,
+            touchAction: 'none',
+            boxShadow: '0 8px 16px rgba(59, 130, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+          }}
+          onMouseDown={handleDragStart}
+          onTouchStart={handleDragStart}
+          onClick={(e) => {
+            // Calculate distance moved to determine if it's a click or drag
+            const distanceMoved = Math.sqrt(
+              Math.pow(e.clientX - dragStartPosition.x, 2) +
+              Math.pow(e.clientY - dragStartPosition.y, 2)
+            );
+            
+            // Only trigger view if moved less than 5 pixels (threshold for click vs drag)
+            if (distanceMoved < 5) {
+              setIsViewingSelectedQuestions(true);
+            }
+          }}
+        >
+          <div className="relative">
+            <FileText className="h-7 w-7" />
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold border-2 border-white">
+              {selectedQuestions.length}
+            </span>
+          </div>
+        </button>
+      )}
 
       {/* Typeset Request Modal */}
       <TypesetRequestModal

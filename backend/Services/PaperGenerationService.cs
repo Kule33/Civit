@@ -56,14 +56,22 @@ namespace backend.Services
             var questionSelectionCounts = await _repository.GetMostSelectedQuestionsAsync(10);
             var mostSelectedQuestions = new Dictionary<Guid, QuestionSelectionDto>();
 
-            foreach (var kvp in questionSelectionCounts)
+            // OPTIMIZATION: Fetch all questions in one query instead of N queries
+            var topQuestionIds = questionSelectionCounts.Keys.ToList();
+            var topQuestions = new Dictionary<Guid, Question>();
+
+            if (topQuestionIds.Any())
             {
-                var question = await _context.Questions
+                topQuestions = await _context.Questions
                     .Include(q => q.Subject)
                     .Include(q => q.School)
-                    .FirstOrDefaultAsync(q => q.Id == kvp.Key);
+                    .Where(q => topQuestionIds.Contains(q.Id))
+                    .ToDictionaryAsync(q => q.Id);
+            }
 
-                if (question != null)
+            foreach (var kvp in questionSelectionCounts)
+            {
+                if (topQuestions.TryGetValue(kvp.Key, out var question))
                 {
                     mostSelectedQuestions[kvp.Key] = new QuestionSelectionDto
                     {

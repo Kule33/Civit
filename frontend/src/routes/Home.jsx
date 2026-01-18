@@ -275,7 +275,7 @@ const Home = () => {
                   </li>
                 </ul>
                 <button className="w-full py-3 border-2 border-green-600 text-green-600 rounded-lg font-semibold hover:bg-green-600 hover:text-white transition-colors">
-                  Get Started Free
+                  Get Start Free
                 </button>
               </div>
             </div>

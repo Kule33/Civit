@@ -8,8 +8,8 @@
  */
 export const calculateHeroStats = (questions, typesets) => {
   const totalQuestions = questions.length;
-  const totalTypesets = typesets.length;
   const withTypesets = questions.filter(q => q.typesetAvailable).length;
+  const totalTypesets = Array.isArray(typesets) && typesets.length > 0 ? typesets.length : withTypesets;
   const missingTypesets = totalQuestions - withTypesets;
   const coverage = totalQuestions > 0 
     ? ((withTypesets / totalQuestions) * 100).toFixed(1) 

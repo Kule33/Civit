@@ -1,5 +1,5 @@
 // frontend/src/routes/Admin/TypesetBuilder.jsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, Download, FileText, CheckSquare, Square, AlertCircle, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Card from '../../components/ui/card.jsx';
@@ -7,29 +7,52 @@ import Button from '../../components/ui/Button.jsx';
 import { searchQuestions } from '../../services/questionService';
 import { mergeDocuments, getTypesetByQuestionId } from '../../services/typesetService';
 import { supabase } from '../../supabaseClient';
+import { useSubmission } from '../../context/SubmissionContext';
 
 const TypesetBuilder = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [allQuestions, setAllQuestions] = useState([]);
-  const [filteredQuestions, setFilteredQuestions] = useState([]);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { typesetBuilder, setTypesetBuilderState } = useSubmission();
+
+  const searchQuery = typesetBuilder?.searchQuery ?? '';
+  const allQuestions = useMemo(() => typesetBuilder?.allQuestions ?? [], [typesetBuilder?.allQuestions]);
+  const filteredQuestions = useMemo(() => typesetBuilder?.filteredQuestions ?? [], [typesetBuilder?.filteredQuestions]);
+  const selectedFiles = useMemo(() => typesetBuilder?.selectedFiles ?? [], [typesetBuilder?.selectedFiles]);
+  const currentPage = typesetBuilder?.currentPage ?? 1;
+
+  const setSearchQuery = (value) => setTypesetBuilderState(prev => ({ ...prev, searchQuery: value }));
+  const setAllQuestions = (value) => setTypesetBuilderState(prev => ({ ...prev, allQuestions: Array.isArray(value) ? value : [] }));
+  const setFilteredQuestions = (value) => setTypesetBuilderState(prev => ({ ...prev, filteredQuestions: Array.isArray(value) ? value : [] }));
+  const setSelectedFiles = (updater) =>
+    setTypesetBuilderState(prev => {
+      const next = typeof updater === 'function' ? updater(prev.selectedFiles || []) : updater;
+      return { ...prev, selectedFiles: Array.isArray(next) ? next : [] };
+    });
+  const setCurrentPage = (value) => setTypesetBuilderState(prev => ({ ...prev, currentPage: value }));
+
+  const [isLoading, setIsLoading] = useState(() => allQuestions.length === 0);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25); // Show 25 items per page
 
   // Load all questions on mount
   React.useEffect(() => {
-    loadAllQuestions();
+    if (allQuestions.length === 0) {
+      loadAllQuestions();
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Filter questions as user types
+  // Reset to page 1 only when the query changes (not when background detail updates arrive)
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Filter questions as data/query changes (do not reset pagination here)
   React.useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredQuestions(allQuestions);
-      setCurrentPage(1); // Reset to page 1 when clearing search
       return;
     }
 
@@ -48,7 +71,6 @@ const TypesetBuilder = () => {
     });
     
     setFilteredQuestions(filtered);
-    setCurrentPage(1); // Reset to page 1 when search changes
   }, [searchQuery, allQuestions]);
 
   // Calculate pagination
@@ -59,10 +81,11 @@ const TypesetBuilder = () => {
 
   const loadAllQuestions = async () => {
     setIsLoading(true);
+    setIsLoadingDetails(false);
     setError(null);
     
     try {
-      // First, get all questions
+      // Stage 1: get all questions quickly
       const params = new URLSearchParams();
       const results = await searchQuestions(params);
       const allQuestionsData = results.items || results || [];
@@ -77,7 +100,19 @@ const TypesetBuilder = () => {
         return;
       }
 
-      // Fetch actual typeset details for each question with typesets
+      // Put base rows into state immediately (without blocking on per-question typeset lookups)
+      const base = questionsWithTypesets.map(q => ({
+        ...q,
+        typesetId: null,
+        typesetUrl: null,
+        typesetFileName: null,
+        typesetVersion: null
+      }));
+      setAllQuestions(base);
+      setFilteredQuestions(base);
+      setIsLoading(false);
+
+      // Stage 2: fetch typeset details lazily in batches
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
@@ -86,26 +121,44 @@ const TypesetBuilder = () => {
         return;
       }
 
-      const typesetPromises = questionsWithTypesets.map(async (q) => {
-        const typeset = await getTypesetByQuestionId(q.id, token);
-        if (typeset) {
-          return {
-            ...q,
-            typesetId: typeset.id,
-            typesetUrl: typeset.fileUrl,
-            typesetFileName: typeset.fileName,
-            typesetVersion: typeset.version
-          };
-        }
-        return null;
-      });
+      setIsLoadingDetails(true);
+      const batchSize = 10;
+      let working = [...base];
 
-      const questionsWithTypesetDetails = (await Promise.all(typesetPromises)).filter(q => q !== null);
-      
-      setAllQuestions(questionsWithTypesetDetails);
-      setFilteredQuestions(questionsWithTypesetDetails);
-      
-      if (questionsWithTypesetDetails.length === 0) {
+      for (let i = 0; i < questionsWithTypesets.length; i += batchSize) {
+        const batch = questionsWithTypesets.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (q) => {
+            try {
+              const typeset = await getTypesetByQuestionId(q.id, token);
+              if (!typeset) return null;
+              return {
+                questionId: q.id,
+                typesetId: typeset.id,
+                typesetUrl: typeset.fileUrl,
+                typesetFileName: typeset.fileName,
+                typesetVersion: typeset.version
+              };
+            } catch (err) {
+              console.error(`Failed to load typeset for ${q.id}:`, err);
+              return null;
+            }
+          })
+        );
+
+        const details = batchResults.filter(Boolean);
+        if (details.length > 0) {
+          const detailMap = new Map(details.map(d => [d.questionId, d]));
+          working = working.map(row => {
+            const d = detailMap.get(row.id);
+            return d ? { ...row, ...d } : row;
+          });
+          setAllQuestions(working);
+        }
+      }
+
+      // If nothing ended up with a URL, treat as empty
+      if (working.every(q => !q.typesetUrl)) {
         setError('No typeset documents found');
       }
     } catch (err) {
@@ -113,11 +166,13 @@ const TypesetBuilder = () => {
       setError('Failed to load typeset documents. Please try again.');
     } finally {
       setIsLoading(false);
+      setIsLoadingDetails(false);
     }
   };
 
   // Handle file selection toggle
   const toggleFileSelection = (file) => {
+    if (!file?.typesetUrl) return;
     setSelectedFiles(prev => {
       const isSelected = prev.some(f => f.id === file.id);
       if (isSelected) {
@@ -130,7 +185,7 @@ const TypesetBuilder = () => {
 
   // Select all files
   const selectAll = () => {
-    setSelectedFiles(filteredQuestions);
+    setSelectedFiles(filteredQuestions.filter(f => !!f.typesetUrl));
   };
 
   // Deselect all files
@@ -205,7 +260,7 @@ const TypesetBuilder = () => {
               className="flex-1 outline-none text-sm"
               disabled={isLoading}
             />
-            {isLoading && <Loader className="h-5 w-5 animate-spin text-blue-600" />}
+            {(isLoading || isLoadingDetails) && <Loader className="h-5 w-5 animate-spin text-blue-600" />}
           </div>
 
           {error && (
@@ -293,18 +348,23 @@ const TypesetBuilder = () => {
             <div className="space-y-2">
               {paginatedQuestions.map((file) => {
                 const isSelected = selectedFiles.some(f => f.id === file.id);
+                const isReady = !!file.typesetUrl;
                 return (
                   <div
                     key={file.id}
                     onClick={() => toggleFileSelection(file)}
-                    className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all ${
+                    className={`flex items-center gap-4 p-4 border rounded-lg transition-all ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    } ${
+                      isReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
                     }`}
                   >
                     <div className="flex-shrink-0">
-                      {isSelected ? (
+                      {!isReady ? (
+                        <Loader className="h-6 w-6 animate-spin text-blue-600" />
+                      ) : isSelected ? (
                         <CheckSquare className="h-6 w-6 text-blue-600" />
                       ) : (
                         <Square className="h-6 w-6 text-gray-400" />
@@ -333,7 +393,7 @@ const TypesetBuilder = () => {
                         <span>{file.examType || 'N/A'}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        📄 {file.typesetFileName || 'Typeset Document'}
+                        📄 {file.typesetFileName || (isReady ? 'Typeset Document' : 'Loading typeset...')}
                       </p>
                     </div>
 
@@ -343,9 +403,12 @@ const TypesetBuilder = () => {
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.open(file.typesetUrl, '_blank');
+                          if (file.typesetUrl) {
+                            window.open(file.typesetUrl, '_blank');
+                          }
                         }}
                         className="text-blue-600 hover:bg-blue-50"
+                        disabled={!file.typesetUrl}
                       >
                         Preview
                       </Button>

@@ -2,6 +2,7 @@ using backend.DTOs;
 using backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 
 namespace backend.Controllers
@@ -13,17 +14,21 @@ namespace backend.Controllers
     {
         private readonly INotificationService _notificationService;
         private readonly ILogger<NotificationsController> _logger;
+        private readonly IMemoryCache _cache;
 
         public NotificationsController(
             INotificationService notificationService,
-            ILogger<NotificationsController> logger)
+            ILogger<NotificationsController> logger,
+            IMemoryCache cache)
         {
             _notificationService = notificationService;
             _logger = logger;
+            _cache = cache;
         }
 
         // GET /api/notifications?page=1&pageSize=10&isRead=false
         [HttpGet]
+        [ResponseCache(Duration = 10, VaryByQueryKeys = new[] { "page", "pageSize", "isRead" })]
         public async Task<ActionResult<PaginatedNotificationsDto>> GetNotifications(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
@@ -50,7 +55,9 @@ namespace backend.Controllers
         }
 
         // GET /api/notifications/unread-count
+        // Cache for 10 seconds to reduce database hits from polling
         [HttpGet("unread-count")]
+        [ResponseCache(Duration = 10, VaryByHeader = "Authorization")]
         public async Task<ActionResult<NotificationSummaryDto>> GetUnreadCount()
         {
             try
@@ -61,7 +68,21 @@ namespace backend.Controllers
                     return Unauthorized("User ID not found in token");
                 }
 
-                var summary = await _notificationService.GetUnreadCountAsync(userId);
+                // Check memory cache first (per-user caching)
+                var cacheKey = $"unread_count_{userId}";
+                
+                if (!_cache.TryGetValue(cacheKey, out NotificationSummaryDto? summary) || summary == null)
+                {
+                    // Not in cache, fetch from database
+                    summary = await _notificationService.GetUnreadCountAsync(userId);
+                    
+                    // Cache for 10 seconds
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetAbsoluteExpiration(TimeSpan.FromSeconds(10));
+                    
+                    _cache.Set(cacheKey, summary, cacheOptions);
+                }
+                
                 return Ok(summary);
             }
             catch (Exception ex)

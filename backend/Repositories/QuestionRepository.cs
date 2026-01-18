@@ -37,6 +37,7 @@ namespace backend.Repositories
             return await _context.Questions
                 .Include(q => q.Subject) // Eagerly load Subject details
                 .Include(q => q.School)   // Eagerly load School details
+                .Include(q => q.Typesets) // Eagerly load Typesets to prevent N+1
                 .FirstOrDefaultAsync(q => q.Id == id);
         }
 
@@ -52,6 +53,8 @@ namespace backend.Repositories
             return await _context.Questions
                 .Include(q => q.Subject) // Eagerly load Subject details
                 .Include(q => q.School)   // Eagerly load School details
+                .Include(q => q.Typesets) // Eagerly load Typesets to prevent N+1
+                .AsSplitQuery() // Use split query for better performance
                 .ToListAsync();
         }
 
@@ -59,8 +62,10 @@ namespace backend.Repositories
         public async Task<IEnumerable<Question>> GetFilteredQuestionsAsync(QuestionSearchDto searchDto)
         {
             IQueryable<Question> query = _context.Questions
-                .Include(q => q.Subject) // **IMPORTANT: Include Subject**
-                .Include(q => q.School);   // **IMPORTANT: Include School**
+                .Include(q => q.Subject)  // **IMPORTANT: Include Subject**
+                .Include(q => q.School)   // **IMPORTANT: Include School**
+                .Include(q => q.Typesets) // **PERFORMANCE FIX: Eager load typesets to prevent N+1 queries**
+                .AsSplitQuery(); // Use split query for better performance with multiple includes
 
             if (!string.IsNullOrWhiteSpace(searchDto.Country))
             {

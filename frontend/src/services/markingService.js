@@ -6,18 +6,31 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5201';
 
 // Get auth headers from Supabase session
 const getAuthHeaders = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) {
-    console.error("Error getting Supabase session:", error);
-    throw new Error("Authentication session not found.");
+  try {
+    // Add timeout to prevent hanging
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Session fetch timeout')), 2000)
+    );
+    
+    const result = await Promise.race([sessionPromise, timeoutPromise]);
+    const { data: { session }, error } = result;
+    
+    if (error) {
+      console.error("Error getting Supabase session:", error);
+      throw new Error("Authentication session not found.");
+    }
+    if (!session || !session.access_token) {
+      throw new Error("No active session or access token found. User might not be logged in.");
+    }
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    };
+  } catch (error) {
+    console.error("Error in getAuthHeaders:", error);
+    throw error;
   }
-  if (!session || !session.access_token) {
-    throw new Error("No active session or access token found. User might not be logged in.");
-  }
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`
-  };
 };
 
 /**

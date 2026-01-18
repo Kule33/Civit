@@ -4,6 +4,7 @@ using backend.Repositories;
 using backend.Repositories.Interfaces;
 using backend.Services;
 using backend.Services.Interfaces;
+using backend.Middleware; // Import our custom middleware
 using Microsoft.EntityFrameworkCore;
 using CloudinaryDotNet;
 using Microsoft.OpenApi.Models;
@@ -190,13 +191,8 @@ builder.Services.AddAuthentication(options =>
                     }
                 }
 
-                // Diagnostic: log claims to server console
-                try
-                {
-                    var claimsDebug = string.Join(", ", identity.Claims.Select(c => $"{c.Type}={c.Value}"));
-                    Console.WriteLine($"[Auth] Token validated. Claims: {claimsDebug}");
-                }
-                catch { }
+                // NOTE: Verbose claim logging removed for performance
+                // Only log on authentication failures if needed for debugging
             }
             catch
             {
@@ -250,6 +246,12 @@ builder.Services.AddScoped<IDocumentMergeService, DocumentMergeService>();
 
 // Add this line to register IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();
+
+// Add memory cache for performance optimization
+builder.Services.AddMemoryCache();
+
+// Add response caching
+builder.Services.AddResponseCaching();
 
 // Update QuestionService to accept new repositories and IHttpContextAccessor
 builder.Services.AddScoped<IQuestionService, QuestionService>(provider =>
@@ -334,8 +336,41 @@ app.UseRouting();
 
 app.UseCors("AllowFrontend");
 
+// ============================================
+// RESPONSE CACHING MIDDLEWARE
+// ============================================
+// Cache GET responses to reduce database load
+app.UseResponseCaching();
+
+// ============================================
+// CUSTOM AUTHENTICATION & AUTHORIZATION MIDDLEWARE
+// ============================================
+// These middleware handle server-side authentication and authorization
+// All requests pass through these before reaching controllers
+
+// 1. JWT Authentication Middleware
+//    - Validates JWT tokens from Supabase
+//    - Extracts user claims (ID, email, role)
+//    - Sets HttpContext.User for downstream use
+app.UseMiddleware<JwtAuthenticationMiddleware>();
+
+// 2. Standard ASP.NET Core Authentication
+//    - Works in conjunction with our custom middleware
+//    - Handles [Authorize] attributes on controllers
 app.UseAuthentication();
+
+// 3. Role-Based Authorization Middleware
+//    - Logs authorization attempts for audit
+//    - Can implement custom authorization logic
+//    - Runs before controller actions
+app.UseRoleAuthorization();
+
+// 4. Standard ASP.NET Core Authorization
+//    - Handles [Authorize(Roles = "...")] attributes
+//    - Works with our custom authorization attributes
 app.UseAuthorization();
+
+// ============================================
 
 app.MapControllers();
 

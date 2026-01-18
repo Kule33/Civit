@@ -8,7 +8,8 @@ const SearchableSelect = ({
   value,
   onChange,
   placeholder = "Select an option",
-  required = false
+  required = false,
+  disabled = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +20,7 @@ const SearchableSelect = ({
   );
 
   const handleSelect = (optionValue) => {
+    if (disabled) return;
     onChange({ target: { value: optionValue } }); // Simulate event object for consistency
     setSearchTerm(options.find(opt => opt.value === optionValue)?.label || '');
     setIsOpen(false);
@@ -59,22 +61,27 @@ const SearchableSelect = ({
           placeholder={placeholder}
           value={searchTerm}
           onChange={(e) => {
+            if (disabled) return;
             setSearchTerm(e.target.value);
             setIsOpen(true); // Open dropdown when typing
           }}
-          onFocus={() => setIsOpen(true)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+          onFocus={() => !disabled && setIsOpen(true)}
+          disabled={disabled}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10 ${
+            disabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+          }`}
         />
         <button
           type="button"
           className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-700"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
         >
           {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </button>
       </div>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option) => (

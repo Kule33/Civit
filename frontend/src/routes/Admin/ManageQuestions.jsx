@@ -1,5 +1,5 @@
 // frontend/src/routes/Admin/ManageQuestions.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Upload, Search, Filter, Trash2, Edit, Download, ChevronLeft, ChevronRight, AlertTriangle, Inbox, Eye, Save } from 'lucide-react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/card.jsx';
@@ -12,25 +12,40 @@ import { supabase } from '../../supabaseClient';
 import { useSubmission } from '../../context/SubmissionContext';
 
 const ManageQuestions = () => {
-  const [activeTab, setActiveTab] = useState('questions'); // 'questions', 'typesets', or 'typeset-requests'
-  const [questions, setQuestions] = useState([]);
-  const [typesets, setTypesets] = useState([]);
-  const [typesetRequests, setTypesetRequests] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const { showOverlay } = useSubmission();
+  const { showOverlay, manageQuestions, setManageQuestionsState } = useSubmission();
+
+  const activeTab = manageQuestions?.activeTab || 'questions';
+  const questions = useMemo(() => manageQuestions?.questions ?? [], [manageQuestions?.questions]);
+  const typesets = useMemo(() => manageQuestions?.typesets ?? [], [manageQuestions?.typesets]);
+  const typesetRequests = useMemo(() => manageQuestions?.typesetRequests ?? [], [manageQuestions?.typesetRequests]);
+  const loading = !!manageQuestions?.loading;
+
+  const setActiveTab = (value) => {
+    setManageQuestionsState(prev => ({ ...prev, activeTab: value }));
+  };
+
+  const setLoading = (value) => {
+    setManageQuestionsState(prev => ({ ...prev, loading: !!value }));
+  };
 
   // Load all questions on mount
   useEffect(() => {
-    loadAllQuestions();
+    if (questions.length === 0) {
+      loadAllQuestions();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load typesets when tab switches
   useEffect(() => {
     if (activeTab === 'typesets') {
-      loadTypesetsForQuestions();
+      if (typesets.length === 0) {
+        loadTypesetsForQuestions();
+      }
     } else if (activeTab === 'typeset-requests') {
-      loadTypesetRequests();
+      if (typesetRequests.length === 0) {
+        loadTypesetRequests();
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, questions]);
@@ -39,7 +54,7 @@ const ManageQuestions = () => {
     try {
       setLoading(true);
       const data = await searchQuestions(new URLSearchParams());
-      setQuestions(Array.isArray(data) ? data : []);
+      setManageQuestionsState(prev => ({ ...prev, questions: Array.isArray(data) ? data : [] }));
     } catch (error) {
       console.error('Error loading questions:', error);
       showOverlay({
@@ -55,27 +70,63 @@ const ManageQuestions = () => {
 
   const loadTypesetsForQuestions = async () => {
     try {
+      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       // Filter questions that have typesets
       const questionsWithTypesets = questions.filter(q => q.typesetAvailable);
       
-      // Fetch full typeset details for each
-      const typesetPromises = questionsWithTypesets.map(async (q) => {
-        const typeset = await getTypesetByQuestionId(q.id, token);
-        return {
-          ...typeset,
-          question: q
-        };
-      });
+      if (questionsWithTypesets.length === 0) {
+        setManageQuestionsState(prev => ({ ...prev, typesets: [] }));
+        setLoading(false);
+        return;
+      }
 
-      const typesetsData = await Promise.all(typesetPromises);
-      setTypesets(typesetsData.filter(t => t !== null));
+      // Progressive fetch in batches so the UI can render partial results quickly.
+      const batchSize = 10;
+      const accumulated = [];
+
+      for (let i = 0; i < questionsWithTypesets.length; i += batchSize) {
+        const batch = questionsWithTypesets.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (q) => {
+            try {
+              const typeset = await getTypesetByQuestionId(q.id, token);
+              if (!typeset) return null;
+              return { ...typeset, question: q };
+            } catch (error) {
+              console.error(`Error loading typeset for question ${q.id}:`, error);
+              return null;
+            }
+          })
+        );
+
+        const valid = batchResults.filter(t => t !== null);
+        accumulated.push(...valid);
+
+        setManageQuestionsState(prev => ({ ...prev, typesets: [...accumulated] }));
+
+        // Stop blocking the tab after the first partial batch is available.
+        if (i === 0) {
+          setLoading(false);
+        }
+      }
     } catch (error) {
       console.error('Error loading typesets:', error);
+      showOverlay({
+        status: 'error',
+        message: 'Failed to load typesets',
+        autoClose: true,
+        autoCloseDelay: 3000
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,7 +134,7 @@ const ManageQuestions = () => {
     try {
       setLoading(true);
       const data = await getAllTypesetRequests();
-      setTypesetRequests(Array.isArray(data) ? data : []);
+      setManageQuestionsState(prev => ({ ...prev, typesetRequests: Array.isArray(data) ? data : [] }));
     } catch (error) {
       console.error('Error loading typeset requests:', error);
       showOverlay({

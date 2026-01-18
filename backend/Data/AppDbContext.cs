@@ -66,7 +66,7 @@ namespace backend.Data
                 
                 // Configure Question relationship with cascade delete
                 entity.HasOne(t => t.Question)
-                    .WithMany()
+                    .WithMany(q => q.Typesets)
                     .HasForeignKey(t => t.QuestionId)
                     .OnDelete(DeleteBehavior.Cascade);
             });

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthProvider';
+import { useSubmission } from '../../context/SubmissionContext';
 import { 
   getAllProfiles, 
   updateProfile, 
@@ -62,13 +63,16 @@ const maskPhone = (phone) => {
 
 const Users = () => {
   const { isAdmin } = useAuth();
-  const [profiles, setProfiles] = useState([]);
-  const [filteredProfiles, setFilteredProfiles] = useState([]);
+  const { usersAdmin, setUsersAdminState } = useSubmission();
+
+  const profiles = usersAdmin.profiles;
+  const searchTerm = usersAdmin.searchTerm;
+  const districtFilter = usersAdmin.districtFilter;
+  const genderFilter = usersAdmin.genderFilter;
+  const roleFilter = usersAdmin.roleFilter;
+  const currentPage = usersAdmin.currentPage;
+
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [districtFilter, setDistrictFilter] = useState('');
-  const [genderFilter, setGenderFilter] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
   
   // Modals
   const [viewModal, setViewModal] = useState({ open: false, user: null });
@@ -76,8 +80,27 @@ const Users = () => {
   const [roleModal, setRoleModal] = useState({ open: false, user: null });
   
   // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 5; // ⚡ OPTIMIZATION: Only 5 rows per page for better performance
+
+  const fetchProfiles = useCallback(async () => {
+    console.log('fetchProfiles called');
+    setLoading(true);
+    try {
+      console.log('Calling getAllProfiles API...');
+      const data = await getAllProfiles();
+      console.log('Profiles fetched:', data?.length || 0, 'profiles');
+      setUsersAdminState(prev => ({
+        ...prev,
+        profiles: Array.isArray(data) ? data : [],
+        loaded: true
+      }));
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+      console.error('Error details:', error.response?.data || error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [setUsersAdminState]);
 
   useEffect(() => {
     console.log('Users component - isAdmin:', isAdmin);
@@ -86,30 +109,14 @@ const Users = () => {
       return;
     }
     console.log('Admin confirmed, fetching profiles...');
-    fetchProfiles();
-  }, [isAdmin]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [profiles, searchTerm, districtFilter, genderFilter, roleFilter]);
-
-  const fetchProfiles = async () => {
-    console.log('fetchProfiles called');
-    setLoading(true);
-    try {
-      console.log('Calling getAllProfiles API...');
-      const data = await getAllProfiles();
-      console.log('Profiles fetched:', data?.length || 0, 'profiles');
-      setProfiles(data);
-    } catch (error) {
-      console.error('Error fetching profiles:', error);
-      console.error('Error details:', error.response?.data || error.message);
-    } finally {
+    if (!usersAdmin.loaded) {
+      fetchProfiles();
+    } else {
       setLoading(false);
     }
-  };
+  }, [isAdmin, usersAdmin.loaded, fetchProfiles]);
 
-  const applyFilters = () => {
+  const filteredProfiles = useMemo(() => {
     let filtered = [...profiles];
 
     // Search filter
@@ -136,15 +143,41 @@ const Users = () => {
       filtered = filtered.filter(p => p.role === roleFilter);
     }
 
-    setFilteredProfiles(filtered);
-    setCurrentPage(1);
+    return filtered;
+  }, [profiles, searchTerm, districtFilter, genderFilter, roleFilter]);
+
+  const setSearchTerm = (value) => {
+    setUsersAdminState(prev => ({ ...prev, searchTerm: value, currentPage: 1 }));
+  };
+
+  const setDistrictFilter = (value) => {
+    setUsersAdminState(prev => ({ ...prev, districtFilter: value, currentPage: 1 }));
+  };
+
+  const setGenderFilter = (value) => {
+    setUsersAdminState(prev => ({ ...prev, genderFilter: value, currentPage: 1 }));
+  };
+
+  const setRoleFilter = (value) => {
+    setUsersAdminState(prev => ({ ...prev, roleFilter: value, currentPage: 1 }));
+  };
+
+  const setCurrentPage = (updater) => {
+    setUsersAdminState(prev => {
+      const nextPage = typeof updater === 'function' ? updater(prev.currentPage) : updater;
+      return { ...prev, currentPage: nextPage };
+    });
   };
 
   const clearFilters = () => {
-    setSearchTerm('');
-    setDistrictFilter('');
-    setGenderFilter('');
-    setRoleFilter('');
+    setUsersAdminState(prev => ({
+      ...prev,
+      searchTerm: '',
+      districtFilter: '',
+      genderFilter: '',
+      roleFilter: '',
+      currentPage: 1
+    }));
   };
 
   // Statistics
@@ -458,7 +491,7 @@ const StatCard = ({ title, value, icon: Icon, gradient }) => (
           </p>
         </div>
         <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
-          <Icon className="h-6 w-6 text-white" />
+          {Icon ? React.createElement(Icon, { className: 'h-6 w-6 text-white' }) : null}
         </div>
       </div>
     </div>

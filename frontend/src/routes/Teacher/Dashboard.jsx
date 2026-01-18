@@ -1,5 +1,5 @@
 // frontend/src/routes/Teacher/Dashboard.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FileQuestion, 
@@ -54,93 +54,108 @@ const BLUE_COLORS = ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'];
 const EXAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const Dashboard = () => {
-  const [questions, setQuestions] = useState([]);
-  const [typesets, setTypesets] = useState([]);
-  const [paperAnalytics, setPaperAnalytics] = useState(null);
-  const [papers, setPapers] = useState([]);
-  const [markings, setMarkings] = useState([]);
-  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(false);
-  const { showOverlay } = useSubmission();
+  const { showOverlay, dashboard, setDashboardState } = useSubmission();
+  const { questions, typesets, paperAnalytics, papers, markings, totalUsers } = dashboard;
+  const loadInFlightRef = useRef(false);
 
-  // Load all data on mount
+  // Load all data on mount - only once per session
   useEffect(() => {
+    if (dashboard.loaded || loadInFlightRef.current) return;
     loadAllData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAllData = async () => {
+    if (loadInFlightRef.current) return;
     try {
+      loadInFlightRef.current = true;
       setLoading(true);
       
-      // Get session token first
+      // Get session token and user info first
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      const userRole = session?.user?.user_metadata?.role || 'teacher';
 
-            // ⚡ OPTIMIZATION: Fetch all top-level data in parallel
-      const [questionsData, analyticsResult, profilesData, papersData, markingsData] = await Promise.all([
-        searchQuestions(new URLSearchParams()).catch(err => {
-          console.error('Error loading questions:', err);
-          return [];
-        }),
-        token ? getPaperAnalytics(365).catch(err => {
-          console.error('Error loading paper analytics:', err);
-          return null;
-        }) : Promise.resolve(null),
-        token ? getAllProfiles().catch(err => {
-          console.error('Error loading user profiles:', err);
-          return [];
-        }) : Promise.resolve([]),
-        token ? searchPapers({}).catch(err => {
-          console.error('Error loading papers:', err);
-          return [];
-        }) : Promise.resolve([]),
-        token ? searchMarkings({}).catch(err => {
-          console.error('Error loading markings:', err);
-          return [];
-        }) : Promise.resolve([])
-      ]);
+      // 1) Load questions first (fast path). This lets the dashboard render almost immediately.
+      const questionsData = await searchQuestions(new URLSearchParams()).catch(err => {
+        console.error('Error loading questions:', err);
+        return [];
+      });
 
       const questionsArray = Array.isArray(questionsData) ? questionsData : [];
-      setQuestions(questionsArray);
-      
-      // Set papers and markings
-      const papersArray = Array.isArray(papersData) ? papersData : [];
-      const markingsArray = Array.isArray(markingsData) ? markingsData : [];
-      setPapers(papersArray);
-      setMarkings(markingsArray);
-      console.log('📄 Papers loaded:', papersArray.length);
-      console.log('📝 Markings loaded:', markingsArray.length);
-      
-      // Process paper analytics
-      if (analyticsResult) {
-        setPaperAnalytics(processPaperAnalytics(analyticsResult));
+      setDashboardState(prev => ({
+        ...prev,
+        questions: questionsArray,
+        loaded: true
+      }));
+
+      // Stop showing loading skeletons once questions are in.
+      setLoading(false);
+
+      // 2) Load the rest in the background (lazy / staged)
+      if (token) {
+        getPaperAnalytics(365)
+          .then(result => setDashboardState(prev => ({
+            ...prev,
+            paperAnalytics: processPaperAnalytics(result)
+          })))
+          .catch(err => console.error('Error loading paper analytics:', err));
+
+        searchPapers({})
+          .then(result => {
+            const papersArray = Array.isArray(result) ? result : [];
+            console.log('📄 Papers loaded:', papersArray.length);
+            setDashboardState(prev => ({ ...prev, papers: papersArray }));
+          })
+          .catch(err => console.error('Error loading papers:', err));
+
+        searchMarkings({})
+          .then(result => {
+            const markingsArray = Array.isArray(result) ? result : [];
+            console.log('📝 Markings loaded:', markingsArray.length);
+            setDashboardState(prev => ({ ...prev, markings: markingsArray }));
+          })
+          .catch(err => console.error('Error loading markings:', err));
+
+        if (userRole === 'admin') {
+          getAllProfiles()
+            .then(result => {
+              const profilesArray = Array.isArray(result) ? result : [];
+              console.log('📊 User profiles loaded:', profilesArray.length);
+              setDashboardState(prev => ({ ...prev, totalUsers: profilesArray.length }));
+            })
+            .catch(err => console.error('Error loading user profiles:', err));
+        }
       }
       
-      // Set total users from profiles
-      const profilesArray = Array.isArray(profilesData) ? profilesData : [];
-      console.log('📊 User profiles loaded:', profilesArray.length);
-      setTotalUsers(profilesArray.length);
-
-      // Load typesets for questions that have them (secondary data)
+      // 3) Defer heavy per-question typeset fetch. This is the slowest part.
       if (token && questionsArray.length > 0) {
-        const questionsWithTypesets = questionsArray.filter(q => q.typesetAvailable);
-        
-        const typesetPromises = questionsWithTypesets.map(async (q) => {
-          try {
-            const typeset = await getTypesetByQuestionId(q.id, token);
-            if (typeset) {
-              return { ...typeset, question: q };
-            }
-          } catch (error) {
-            console.error(`Error loading typeset for question ${q.id}:`, error);
-          }
-          return null;
-        });
+        setTimeout(async () => {
+          const questionsWithTypesets = questionsArray.filter(q => q.typesetAvailable);
 
-        const typesetsResults = await Promise.all(typesetPromises);
-        const validTypesets = typesetsResults.filter(t => t !== null);
-        setTypesets(validTypesets);
+          const typesetPromises = questionsWithTypesets.map(async (q) => {
+            try {
+              const typeset = await getTypesetByQuestionId(q.id, token);
+              if (typeset) {
+                return { ...typeset, question: q };
+              }
+            } catch (error) {
+              console.error(`Error loading typeset for question ${q.id}:`, error);
+            }
+            return null;
+          });
+
+          const typesetsResults = await Promise.all(typesetPromises);
+          const validTypesets = typesetsResults.filter(t => t !== null);
+
+          setDashboardState(prev => ({
+            ...prev,
+            typesets: validTypesets
+          }));
+        }, 0);
+      } else {
+        setDashboardState(prev => ({ ...prev, typesets: [] }));
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -152,6 +167,7 @@ const Dashboard = () => {
       });
     } finally {
       setLoading(false);
+      loadInFlightRef.current = false;
     }
   };
 
@@ -202,25 +218,6 @@ const Dashboard = () => {
     groupBySubject(markings),
     [markings]
   );
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Dashboard"
-          subtitle="Overview of questions, typesets, and system activity"
-        />
-        <Card>
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading dashboard data...</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -551,7 +548,7 @@ const HeroStatsCard = ({ title, value, icon: Icon, color, gradient, subtitle }) 
             )}
           </div>
           <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
-            <Icon className="h-6 w-6 text-white" />
+            {Icon ? React.createElement(Icon, { className: 'h-6 w-6 text-white' }) : null}
           </div>
         </div>
       </div>

@@ -3,129 +3,126 @@ import { supabase } from '../supabaseClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5201';
 
-// Cache configuration
-const CACHE_CONFIG = {
-  notifications: { ttl: 15000 }, // 15 seconds
-  unreadCount: { ttl: 10000 },   // 10 seconds
-};
+// Simplified cache with better performance
+const cache = new Map();
+const pendingRequests = new Map();
 
-// Cache storage
-const cache = {
-  notifications: { data: null, timestamp: null },
-  unreadCount: { data: null, timestamp: null },
-};
-
-// Helper: Check if cache is valid
-const isCacheValid = (cacheKey) => {
-  const cached = cache[cacheKey];
-  if (!cached.data || !cached.timestamp) return false;
-  
-  const age = Date.now() - cached.timestamp;
-  return age < CACHE_CONFIG[cacheKey].ttl;
-};
-
-// Helper: Get from cache
-const getFromCache = (cacheKey) => {
-  if (isCacheValid(cacheKey)) {
-    return cache[cacheKey].data;
+// Cache helper with deduplication
+const getCached = async (cacheKey, fetcher, ttlMs = 15000) => {
+  // Check cache
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < ttlMs) {
+    return cached.data;
   }
-  return null;
+
+  // Check if request is already in flight
+  const pending = pendingRequests.get(cacheKey);
+  if (pending) {
+    return pending;
+  }
+
+  // Make new request
+  const promise = fetcher()
+    .then(data => {
+      cache.set(cacheKey, { data, timestamp: Date.now() });
+      pendingRequests.delete(cacheKey);
+      return data;
+    })
+    .catch(error => {
+      pendingRequests.delete(cacheKey);
+      throw error;
+    });
+
+  pendingRequests.set(cacheKey, promise);
+  return promise;
 };
 
-// Helper: Set cache
-const setCache = (cacheKey, data) => {
-  cache[cacheKey] = {
-    data,
-    timestamp: Date.now(),
-  };
-};
-
-// Helper: Clear cache
+// Clear cache helper
 const clearCache = (cacheKey) => {
   if (cacheKey) {
-    cache[cacheKey] = { data: null, timestamp: null };
+    cache.delete(cacheKey);
   } else {
-    // Clear all cache
-    Object.keys(cache).forEach(key => {
-      cache[key] = { data: null, timestamp: null };
-    });
+    cache.clear();
   }
+  pendingRequests.clear();
 };
 
 // Helper: Get authorization headers from Supabase session
 const getAuthHeaders = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  
-  if (error || !session) {
+  try {
+    // Add timeout to prevent hanging
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Session fetch timeout')), 2000)
+    );
+    
+    const result = await Promise.race([sessionPromise, timeoutPromise]);
+    const { data: { session }, error } = result;
+    
+    if (error || !session) {
+      return null;
+    }
+    
+    return {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
     return null;
   }
-  
-  return {
-    'Authorization': `Bearer ${session.access_token}`,
-    'Content-Type': 'application/json'
-  };
 };
 
-// Get user notifications (paginated)
+// Get user notifications (paginated) with caching and deduplication
 export const getUserNotifications = async (page = 1, pageSize = 10, isRead = null) => {
-  try {
-    const headers = await getAuthHeaders();
-    if (!headers) {
-      // Return empty list if not authenticated
+  const cacheKey = `notifications_${page}_${pageSize}_${isRead}`;
+  
+  return getCached(cacheKey, async () => {
+    try {
+      const headers = await getAuthHeaders();
+      if (!headers) {
+        return { notifications: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 };
+      }
+
+      const params = { page, pageSize };
+      if (isRead !== null) {
+        params.isRead = isRead;
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
+        headers,
+        params,
+        timeout: 10000, // Reduced timeout to 10s
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
       return { notifications: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 };
     }
-
-    const params = { page, pageSize };
-    if (isRead !== null) {
-      params.isRead = isRead;
-    }
-
-    const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
-      headers,
-      params,
-      timeout: 30000,
-    });
-
-    // Cache the first page of all notifications
-    if (page === 1 && isRead === null) {
-      setCache('notifications', response.data);
-    }
-
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    // Return empty list on error
-    return { notifications: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 };
-  }
+  }, 15000); // Cache for 15 seconds
 };
 
-// Get unread count (for badge)
+// Get unread count (for badge) with caching and deduplication
 export const getUnreadCount = async () => {
-  try {
-    // Check cache first
-    const cached = getFromCache('unreadCount');
-    if (cached !== null) {
-      return cached;
-    }
+  return getCached('unread_count', async () => {
+    try {
+      const headers = await getAuthHeaders();
+      if (!headers) {
+        return { unreadCount: 0 };
+      }
 
-    const headers = await getAuthHeaders();
-    if (!headers) {
-      // Return 0 if not authenticated
+      const response = await axios.get(`${API_BASE_URL}/api/notifications/unread-count`, {
+        headers,
+        timeout: 10000, // Reduced timeout to 10s
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
       return { unreadCount: 0 };
     }
-
-    const response = await axios.get(`${API_BASE_URL}/api/notifications/unread-count`, {
-      headers,
-      timeout: 30000,
-    });
-
-    setCache('unreadCount', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching unread count:', error);
-    // Return 0 count on error
-    return { unreadCount: 0 };
-  }
+  }, 15000); // Cache for 15 seconds
 };
 
 // Mark notification as read
