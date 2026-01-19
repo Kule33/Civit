@@ -3,19 +3,21 @@ using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using backend.Data;
-using backend.Models;
 
 #nullable disable
 
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251230104030_AddAdminNotifications")]
+    partial class AddAdminNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -36,7 +38,7 @@ namespace backend.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
@@ -54,7 +56,7 @@ namespace backend.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("read");
 
-                    b.Property<AdminNotificationType>("Type")
+                    b.Property<int>("Type")
                         .HasColumnType("notification_type")
                         .HasColumnName("type");
 
@@ -212,10 +214,6 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("PaymentStatus")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -532,9 +530,6 @@ namespace backend.Migrations
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("QuestionId1")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -545,8 +540,6 @@ namespace backend.Migrations
 
                     b.HasIndex("QuestionId")
                         .IsUnique();
-
-                    b.HasIndex("QuestionId1");
 
                     b.ToTable("Typesets");
                 });
@@ -635,6 +628,9 @@ namespace backend.Migrations
                     b.Property<string>("Id")
                         .HasMaxLength(36)
                         .HasColumnType("character varying(36)");
+
+                    b.Property<decimal>("Balance")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -750,10 +746,6 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("backend.Models.Question", null)
-                        .WithMany("Typesets")
-                        .HasForeignKey("QuestionId1");
-
                     b.Navigation("Question");
                 });
 
@@ -766,11 +758,6 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("backend.Models.Question", b =>
-                {
-                    b.Navigation("Typesets");
                 });
 
             modelBuilder.Entity("backend.Models.School", b =>

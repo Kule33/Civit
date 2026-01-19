@@ -90,6 +90,7 @@ const Header = () => {
     { name: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard, roles: ['admin', 'teacher'] },
     { name: 'Users', path: '/admin/users', icon: Users, roles: ['admin'] },
     { name: 'Paper Builder', path: '/teacher/paper-builder', icon: FileText, roles: ['admin', 'teacher'] },
+    { name: 'Payments', path: '/teacher/payment-checkout', icon: CreditCard, roles: ['admin', 'teacher'] },
     { name: 'Papers', path: '/papers', icon: BookOpen, roles: ['admin', 'teacher'] },
     { name: 'Uploads', path: '/admin/uploads', icon: Upload, roles: ['admin'] },
     { name: 'Manage Questions', path: '/admin/questions/manage', icon: Database, roles: ['admin'] },

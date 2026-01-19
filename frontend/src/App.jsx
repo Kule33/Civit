@@ -3,7 +3,7 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SubmissionProvider } from './context/SubmissionProvider';
 import { useAuth } from './context/AuthProvider'; // Import useAuth to access loading state
-
+import PaymentPage from './routes/Teacher/PaymentCheckout/PaymentPage.jsx'
 // Import your Layout component
 import MainLayout from './components/layouts/MainLayout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx'; // Import ProtectedRoute
@@ -88,6 +88,7 @@ function App() {
             <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
               <Route path="teacher/dashboard" element={<TeacherDashboard />} />
               <Route path="teacher/paper-builder" element={<PaperBuilder />} />
+              <Route path="teacher/payment-checkout" element={<PaymentPage />} />
               <Route path="teacher/payment" element={<TeacherPayment />} />
               <Route path="papers" element={<Papers />} />
             </Route>
